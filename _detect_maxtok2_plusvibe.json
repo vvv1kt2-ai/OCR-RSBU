@@ -1,0 +1,16 @@
+{
+ "1200": {
+  "runs": 25,
+  "fails": 4,
+  "reasoning_median": 318,
+  "reasoning_max": 1097,
+  "parsed_median": 8
+ },
+ "4000": {
+  "runs": 25,
+  "fails": 0,
+  "reasoning_median": 358,
+  "reasoning_max": 1928,
+  "parsed_median": 8
+ }
+}

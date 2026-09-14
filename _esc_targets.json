@@ -1,0 +1,65 @@
+[
+ {
+  "stem": "КИФА_6мес_2026",
+  "form": "balance",
+  "page": 1,
+  "files": [
+   "КИФА_6мес_2026_p1_300_claude-sonnet-5_1214b9cf3d.md"
+  ],
+  "layer_len": 2049
+ },
+ {
+  "stem": "КИФА_6мес_2026",
+  "form": "balance",
+  "page": 2,
+  "files": [
+   "КИФА_6мес_2026_p2_300_claude-sonnet-5_1214b9cf3d.md"
+  ],
+  "layer_len": 414
+ },
+ {
+  "stem": "Проект 111_6мес_2026",
+  "form": "balance",
+  "page": 1,
+  "files": [
+   "Проект 111_6мес_2026_p1_300_claude-sonnet-5_2eb22c6438.md"
+  ],
+  "layer_len": 2068
+ },
+ {
+  "stem": "Проект 111_6мес_2026",
+  "form": "balance",
+  "page": 2,
+  "files": [
+   "Проект 111_6мес_2026_p2_300_claude-sonnet-5_2eb22c6438.md"
+  ],
+  "layer_len": 981
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "page": 1,
+  "files": [
+   "Славянск ЭКО_6мес_2025_p1_300_claude-sonnet-5_c1603f569a.md"
+  ],
+  "layer_len": 2168
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "page": 2,
+  "files": [
+   "Славянск ЭКО_6мес_2025_p2_300_claude-sonnet-5_c1603f569a.md"
+  ],
+  "layer_len": 2102
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "page": 3,
+  "files": [
+   "Славянск ЭКО_6мес_2025_p3_300_claude-sonnet-5_c1603f569a.md"
+  ],
+  "layer_len": 2290
+ }
+]

@@ -1,0 +1,257 @@
+[
+ {
+  "stem": "Артген (ИСКЧ)_6мес_2025",
+  "form": "balance",
+  "pages": 20,
+  "notes": [
+   27
+  ],
+  "esc_pages": [
+   1,
+   2,
+   19,
+   20,
+   21,
+   22,
+   25,
+   27
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "Артген (ИСКЧ)_6мес_2026",
+  "form": "balance",
+  "pages": 14,
+  "notes": [
+   34
+  ],
+  "esc_pages": [
+   1,
+   2,
+   21,
+   22,
+   23,
+   24,
+   25,
+   34
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "Байсэл_6мес_2026",
+  "form": "balance",
+  "pages": 6,
+  "notes": [
+   22
+  ],
+  "esc_pages": [
+   1,
+   2,
+   3,
+   22,
+   23,
+   24
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "form": "balance",
+  "pages": 10,
+  "notes": [
+   22,
+   23,
+   25,
+   26,
+   29
+  ],
+  "esc_pages": [
+   1,
+   2,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27
+  ],
+  "esc_notes": 4,
+  "escalated": true
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "balance",
+  "pages": 8,
+  "notes": [
+   23,
+   25
+  ],
+  "esc_pages": [
+   1,
+   2,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26
+  ],
+  "esc_notes": 2,
+  "escalated": true
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "income_statement",
+  "pages": 3,
+  "notes": [
+   27
+  ],
+  "esc_pages": [
+   3,
+   4,
+   27
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "form": "balance",
+  "pages": 22,
+  "notes": [
+   15
+  ],
+  "esc_pages": [
+   1,
+   2,
+   3,
+   4,
+   15,
+   16,
+   17,
+   18
+  ],
+  "esc_notes": 1,
+  "escalated": true
+ },
+ {
+  "stem": "Моторные технологии_6мес_2026",
+  "form": "balance",
+  "pages": 9,
+  "notes": [
+   13
+  ],
+  "esc_pages": [
+   1,
+   2,
+   3,
+   13,
+   14,
+   15,
+   16,
+   21
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "НовосибирскАвтодор_6мес_2026",
+  "form": "income_statement",
+  "pages": 5,
+  "notes": [
+   40
+  ],
+  "esc_pages": [
+   4,
+   25,
+   26,
+   40,
+   46
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "Омега_6мес_2025",
+  "form": "balance",
+  "pages": 12,
+  "notes": [
+   12
+  ],
+  "esc_pages": [
+   1,
+   2,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "Омега_6мес_2026",
+  "form": "balance",
+  "pages": 12,
+  "notes": [
+   15
+  ],
+  "esc_pages": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   15,
+   16,
+   17
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "Простая еда_6мес_2026",
+  "form": "balance",
+  "pages": 19,
+  "notes": [
+   11
+  ],
+  "esc_pages": [
+   1,
+   2,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ },
+ {
+  "stem": "Финэква_6мес_2026",
+  "form": "balance",
+  "pages": 9,
+  "notes": [
+   12
+  ],
+  "esc_pages": [
+   1,
+   2,
+   3,
+   12,
+   13,
+   14,
+   15,
+   20
+  ],
+  "esc_notes": 0,
+  "escalated": false
+ }
+]

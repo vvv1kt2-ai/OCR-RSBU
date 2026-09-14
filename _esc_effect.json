@@ -1,0 +1,522 @@
+[
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "income_statement",
+  "ok": true,
+  "rule": "2100 == 2110-2120 (±)",
+  "per_column": [
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "income_statement",
+  "ok": true,
+  "rule": "2200 == 2100-2210-2220 (±)",
+  "per_column": [
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "income_statement",
+  "ok": true,
+  "rule": "2400 == 2300-2410±2421∓2430±2450-2460",
+  "per_column": [
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "ИПС_6мес_2026",
+  "form": "cash_flow",
+  "ok": false,
+  "rule": "4400 == 4100+4200+4300",
+  "per_column": [
+   false,
+   true
+  ]
+ },
+ {
+  "stem": "ИПС_6мес_2026",
+  "form": "cash_flow",
+  "ok": false,
+  "rule": "4500 == 4450+4400+4490",
+  "per_column": [
+   false,
+   true
+  ]
+ },
+ {
+  "stem": "КИФА_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КИФА_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КИФА_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КИФА_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "form": "balance",
+  "ok": false,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "balance",
+  "ok": false,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Корпсан_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Корпсан_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Корпсан_6мес_2026",
+  "form": "balance",
+  "ok": false,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   false,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Корпсан_6мес_2026",
+  "form": "balance",
+  "ok": false,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   false,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "form": "balance",
+  "ok": false,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   false,
+   false,
+   true
+  ]
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Проект 111_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Проект 111_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Проект 111_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Проект 111_6мес_2026",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Простая еда_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Простая еда_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Простая еда_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Простая еда_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "ТГК-14_6мес_2026",
+  "form": "income_statement",
+  "ok": false,
+  "rule": "2100 == 2110-2120 (±)",
+  "per_column": [
+   false,
+   true
+  ]
+ },
+ {
+  "stem": "ТГК-14_6мес_2026",
+  "form": "income_statement",
+  "ok": true,
+  "rule": "2200 == 2100-2210-2220 (±)",
+  "per_column": [
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "ТГК-14_6мес_2026",
+  "form": "income_statement",
+  "ok": false,
+  "rule": "2400 == 2300-2410±2421∓2430±2450-2460",
+  "per_column": [
+   false,
+   true
+  ]
+ },
+ {
+  "stem": "Эфферон_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1600 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Эфферон_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1100 == 1110+1150+1160+1170+1180+1190",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ },
+ {
+  "stem": "Эфферон_6мес_2025",
+  "form": "balance",
+  "ok": false,
+  "rule": "1200 == 1210+1220+1230+1240+1250+1260",
+  "per_column": [
+   false,
+   false,
+   true
+  ]
+ },
+ {
+  "stem": "Эфферон_6мес_2025",
+  "form": "balance",
+  "ok": true,
+  "rule": "1300+1400+1500 == 1700",
+  "per_column": [
+   true,
+   true,
+   true
+  ]
+ }
+]

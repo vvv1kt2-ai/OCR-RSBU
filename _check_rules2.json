@@ -1,0 +1,50 @@
+[
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "now": false,
+  "with1215": true,
+  "esc": true,
+  "pages": 8,
+  "per_column": [
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "now": false,
+  "with1215": true,
+  "esc": true,
+  "pages": 8,
+  "per_column": [
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "stem": "ТГК-14_6мес_2025",
+  "now": false,
+  "with1215": false,
+  "esc": true,
+  "pages": 2,
+  "per_column": [
+   false,
+   false,
+   false
+  ]
+ },
+ {
+  "stem": "ТГК-14_6мес_2026",
+  "now": false,
+  "with1215": true,
+  "esc": false,
+  "pages": 0,
+  "per_column": [
+   false,
+   false,
+   false
+  ]
+ }
+]

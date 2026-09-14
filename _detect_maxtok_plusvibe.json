@@ -1,0 +1,30 @@
+{
+ "1200": {
+  "runs": 16,
+  "fails": 3,
+  "reasoning_median": 239,
+  "parsed_median": 8,
+  "reasoning_max": 691
+ },
+ "2000": {
+  "runs": 16,
+  "fails": 3,
+  "reasoning_median": 290,
+  "parsed_median": 8,
+  "reasoning_max": 1340
+ },
+ "4000": {
+  "runs": 16,
+  "fails": 0,
+  "reasoning_median": 176.5,
+  "parsed_median": 8.0,
+  "reasoning_max": 722
+ },
+ "8000": {
+  "runs": 16,
+  "fails": 2,
+  "reasoning_median": 274.0,
+  "parsed_median": 8.0,
+  "reasoning_max": 1167
+ }
+}

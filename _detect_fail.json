@@ -1,0 +1,57 @@
+[
+ {
+  "ok": true,
+  "pt": 7055,
+  "ct": 78,
+  "reasoning": 44,
+  "chars": 105,
+  "finish": "stop",
+  "parsed": 8,
+  "sec": 94.1359748840332,
+  "label": "как сейчас (1200)"
+ },
+ {
+  "ok": true,
+  "pt": 7055,
+  "ct": 116,
+  "reasoning": 82,
+  "chars": 105,
+  "finish": "stop",
+  "parsed": 8,
+  "sec": 63.481324434280396,
+  "label": "предел 4000"
+ },
+ {
+  "ok": true,
+  "pt": 7055,
+  "ct": 164,
+  "reasoning": 130,
+  "chars": 97,
+  "finish": "stop",
+  "parsed": 8,
+  "sec": 62.66679930686951,
+  "label": "предел 8000"
+ },
+ {
+  "ok": true,
+  "pt": 7055,
+  "ct": 91,
+  "reasoning": 57,
+  "chars": 105,
+  "finish": "stop",
+  "parsed": 8,
+  "sec": 17.172332763671875,
+  "label": "1200 + effort=none"
+ },
+ {
+  "ok": true,
+  "pt": 7055,
+  "ct": 147,
+  "reasoning": 113,
+  "chars": 105,
+  "finish": "stop",
+  "parsed": 8,
+  "sec": 10.690786838531494,
+  "label": "4000 + effort=none"
+ }
+]

@@ -1,0 +1,20 @@
+{
+ "8": {
+  "runs": 20,
+  "fails": 2,
+  "reasoning_median": 299.5,
+  "reasoning_max": 903
+ },
+ "4": {
+  "runs": 20,
+  "fails": 1,
+  "reasoning_median": 108,
+  "reasoning_max": 519
+ },
+ "2": {
+  "runs": 20,
+  "fails": 0,
+  "reasoning_median": 55.0,
+  "reasoning_max": 82
+ }
+}
