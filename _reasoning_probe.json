@@ -1,0 +1,64 @@
+[
+ {
+  "label": "как сейчас (ничего не шлём)",
+  "extra": {},
+  "pt": 1176,
+  "ct": 3193,
+  "reasoning": 2412,
+  "chars": 1527,
+  "cost": 0.0647,
+  "finish": "stop"
+ },
+ {
+  "label": "reasoning_effort=none",
+  "extra": {
+   "reasoning_effort": "none"
+  },
+  "pt": 1176,
+  "ct": 801,
+  "reasoning": 0,
+  "chars": 1542,
+  "cost": 0.0196,
+  "finish": "stop"
+ },
+ {
+  "label": "reasoning_effort=low",
+  "extra": {
+   "reasoning_effort": "low"
+  },
+  "pt": 1176,
+  "ct": 774,
+  "reasoning": 0,
+  "chars": 1511,
+  "cost": 0.019,
+  "finish": "stop"
+ },
+ {
+  "label": "thinking_budget=0",
+  "extra": {
+   "thinking_budget": 0
+  },
+  "pt": 1176,
+  "ct": 3307,
+  "reasoning": 2523,
+  "chars": 1528,
+  "cost": 0.0668,
+  "finish": "stop"
+ },
+ {
+  "label": "extra_body.thinking_config",
+  "extra": {
+   "extra_body": {
+    "thinking_config": {
+     "thinking_budget": 0
+    }
+   }
+  },
+  "pt": 1176,
+  "ct": 1784,
+  "reasoning": 998,
+  "chars": 1535,
+  "cost": 0.0381,
+  "finish": "stop"
+ }
+]

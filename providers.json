@@ -24,7 +24,8 @@
    },
    "cache_tag": "pv",
    "cost_header": "x-pv-cost-rub",
-   "note": "адреса моделей подобраны из живого каталога PlusVibe (verify_profiles.py) и сверены по длине и sha1; метка pv входит в имена файлов кэша, ключи Polza не тронуты"
+   "reasoning": {},
+   "note": "адреса моделей подобраны из живого каталога PlusVibe (verify_profiles.py) и сверены по длине и sha1; метка pv входит в имена файлов кэша, ключи Polza не тронуты; reasoning задаётся по ролям и по умолчанию пуст — включить: \"reasoning\": {\"main\": \"none\"} или PILOT_REASONING=main=none"
   }
  }
 }

@@ -1,0 +1,74 @@
+[
+ {
+  "role": "main",
+  "extra": {},
+  "pt": 1176,
+  "ct": 2495,
+  "reasoning": 1708,
+  "chars": 1536,
+  "cost": 0.0515,
+  "finish": "stop",
+  "label": "как сейчас"
+ },
+ {
+  "role": "main",
+  "extra": {
+   "reasoning_effort": "none"
+  },
+  "pt": 1176,
+  "ct": 780,
+  "reasoning": 0,
+  "chars": 1526,
+  "cost": 0.0192,
+  "finish": "stop",
+  "label": "reasoning_effort=none"
+ },
+ {
+  "role": "esc",
+  "extra": {},
+  "pt": 151,
+  "ct": 1725,
+  "reasoning": 105,
+  "chars": 1494,
+  "cost": 0.5513,
+  "finish": "stop",
+  "label": "как сейчас"
+ },
+ {
+  "role": "esc",
+  "extra": {
+   "reasoning_effort": "none"
+  },
+  "pt": 151,
+  "ct": 1974,
+  "reasoning": 245,
+  "chars": 1497,
+  "cost": 0.6295,
+  "finish": "stop",
+  "label": "reasoning_effort=none"
+ },
+ {
+  "role": "detect",
+  "extra": {},
+  "pt": 1121,
+  "ct": 7580,
+  "reasoning": 6937,
+  "chars": 1468,
+  "cost": 0.0237,
+  "finish": "stop",
+  "label": "как сейчас"
+ },
+ {
+  "role": "detect",
+  "extra": {
+   "reasoning_effort": "none"
+  },
+  "pt": 1121,
+  "ct": 7044,
+  "reasoning": 6502,
+  "chars": 1268,
+  "cost": 0.0214,
+  "finish": "stop",
+  "label": "reasoning_effort=none"
+ }
+]

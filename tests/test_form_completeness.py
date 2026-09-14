@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for defect 4.2 (loss of the balance passive page) — decision 15.
+r"""Tests for defect 4.2 (loss of the balance passive page) — decision 15.
 
 No LLM calls: only the completeness rule, the page finder and the quality metric.
 Run: python D:\models\tests\test_form_completeness.py

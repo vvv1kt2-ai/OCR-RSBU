@@ -168,6 +168,89 @@ check('M_DETECT совпадает с ролью detect профиля',
       P.M_DETECT == P.ACTIVE_PROFILE.roles['detect'])
 check('BASE совпадает с адресом профиля', P.BASE == P.ACTIVE_PROFILE.chat_url)
 
+print('--- режим рассуждений ---')
+# Измерено: 74% выходных токенов основной модели — рассуждения, которые конвейер
+# выбрасывает, а платит за них по цене выхода. Параметр reasoning_effort снимает их
+# целиком, не меняя текст ответа. Но у эскалации и детекции он не работает, поэтому
+# настройка задаётся по ролям, а по умолчанию выключена: молчаливое включение
+# изменило бы то, за что мы платим, без ведома того, кто запускает прогон.
+def _body(prof, role):
+    url, headers, body = PR.build_request(prof, prof.address(role), [{'role': 'user'}], 'k')
+    return json.loads(body.decode('utf-8'))
+
+
+plain = PR.Profile('обычный', 'https://x', 'K',
+                   {'detect': 'd', 'main': 'm', 'esc': 'e'}, {'m': (1.0, 2.0)})
+check('без настройки рассуждений параметр не отправляется',
+      'reasoning_effort' not in _body(plain, 'main'),
+      'молчаливое включение меняет счёт за прогон')
+check('и тело запроса прежнее: модель, сообщения, температура, предел',
+      sorted(_body(plain, 'main')) == ['max_tokens', 'messages', 'model', 'temperature'],
+      sorted(_body(plain, 'main')))
+
+tuned = PR.Profile('настроенный', 'https://x', 'K',
+                   {'detect': 'd', 'main': 'm', 'esc': 'e'}, {'m': (1.0, 2.0)},
+                   reasoning={'main': 'none'})
+check('настройка рассуждений попадает в запрос основной модели',
+      _body(tuned, 'main').get('reasoning_effort') == 'none')
+check('эскалация не получает чужую настройку',
+      'reasoning_effort' not in _body(tuned, 'esc'),
+      'у эскалации параметр не работает — посылать его значит врать в настройках')
+check('детекция тоже не получает', 'reasoning_effort' not in _body(tuned, 'detect'))
+check('настройка не подменяет модель и сообщения',
+      _body(tuned, 'main')['model'] == 'm' and _body(tuned, 'main')['messages'])
+
+allroles = PR.Profile('все-роли', 'https://x', 'K',
+                      {'detect': 'd', 'main': 'm', 'esc': 'e'}, {},
+                      reasoning={'main': 'low', 'esc': 'low'})
+check('настройка задаётся по каждой роли отдельно',
+      _body(allroles, 'main')['reasoning_effort'] == 'low'
+      and _body(allroles, 'esc')['reasoning_effort'] == 'low'
+      and 'reasoning_effort' not in _body(allroles, 'detect'))
+
+# файл профилей должен уметь то же самое, иначе настройка недоступна без правки кода
+rj = os.path.join(tempfile.gettempdir(), '_test_providers_reason.json')
+open(rj, 'w', encoding='utf-8').write(json.dumps({'providers': {'р': {
+    'chat_url': 'https://x', 'key_name': 'K',
+    'roles': {'detect': 'd', 'main': 'm', 'esc': 'e'},
+    'prices': {'m': [1.0, 2.0]}, 'reasoning': {'main': 'none'}}}}, ensure_ascii=False))
+rl = PR.load_profiles(rj)['р']
+check('файл профилей задаёт режим рассуждений',
+      _body(rl, 'main').get('reasoning_effort') == 'none')
+check('и не выдумывает его там, где не задан', 'reasoning_effort' not in _body(rl, 'esc'))
+open(rj, 'w', encoding='utf-8').write(json.dumps({'providers': {'р': {
+    'chat_url': 'https://x', 'key_name': 'K',
+    'roles': {'detect': 'd', 'main': 'm', 'esc': 'e'},
+    'prices': {'m': [1.0, 2.0]}}}}, ensure_ascii=False))
+check('отсутствие поля в файле читается как «выключено»',
+      'reasoning_effort' not in _body(PR.load_profiles(rj)['р'], 'main'))
+
+print('--- включение переменной окружения ---')
+os.environ['PILOT_REASONING'] = 'main=none'
+envprof = PR.Profile('с-переменной', 'https://x', 'K',
+                     {'detect': 'd', 'main': 'm', 'esc': 'e'}, {})
+check('переменная окружения включает режим без правки файла',
+      _body(envprof, 'main').get('reasoning_effort') == 'none')
+check('переменная не задевает роли, которых в ней нет',
+      'reasoning_effort' not in _body(envprof, 'esc'))
+os.environ['PILOT_REASONING'] = 'main=none,esc=low'
+check('в переменной можно перечислить несколько ролей',
+      _body(envprof, 'esc').get('reasoning_effort') == 'low')
+os.environ['PILOT_REASONING'] = 'мусор без знака равенства'
+check('мусор в переменной не роняет сборку запроса',
+      'reasoning_effort' not in _body(envprof, 'main'))
+del os.environ['PILOT_REASONING']
+check('без переменной снова ничего не отправляется',
+      'reasoning_effort' not in _body(envprof, 'main'))
+# Режим рассуждений не меняет то, что мы читаем со страницы, поэтому в ключ кэша он
+# попадать не должен: иначе включение режима оплатило бы повторную транскрипцию всего.
+_quiet = PR.Profile('т', 'https://x', 'K', {}, {}, cache_tag='pv')
+_loud = PR.Profile('т', 'https://x', 'K', {}, {}, cache_tag='pv',
+                   reasoning={'main': 'none'})
+check('настройка не попадает в метку кэша: режим не меняет, что мы читаем со страницы',
+      _quiet.cache_suffix() == _loud.cache_suffix() == 'pv',
+      (_quiet.cache_suffix(), _loud.cache_suffix()))
+
 print()
 print('пройдено %d, провалено %d' % (len(PASS), len(FAIL)))
 if FAIL:

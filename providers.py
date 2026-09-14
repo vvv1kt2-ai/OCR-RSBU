@@ -20,7 +20,15 @@ import io, os, re, json, hashlib, warnings
 CRED = r'C:\Users\1\.dsh\.credentials.yaml'
 PROFILES_JSON = os.environ.get('PILOT_PROFILES', r'D:\models\providers.json')
 ENV_VAR = 'PILOT_PROVIDER'
+REASONING_VAR = 'PILOT_REASONING'
 DEFAULT_PROVIDER = 'polza'
+
+# Режим рассуждений: параметр `reasoning_effort`, который поставщик принимает, а
+# модель может и проигнорировать. Измерено на PlusVibe: у основной модели он снимает
+# 74% выходных токенов, которые конвейер всё равно выбрасывает (они оплачиваются как
+# выходные), а у эскалации и детекции не действует вовсе. Поэтому задаётся по ролям
+# и по умолчанию не задан ни для кого.
+REASONING_ROLES = ('detect', 'main', 'esc')
 
 # Поставщик, чьи ключи кэша уже лежат на диске в прежнем виде. Для него метка
 # поставщика в имя файла НЕ добавляется, иначе переключение профиля вызвало бы
@@ -36,7 +44,7 @@ class Profile(object):
     """Поставщик целиком: куда обращаться, чем платить, какие модели за что отвечают."""
 
     def __init__(self, name, chat_url, key_name, roles, prices,
-                 cache_tag='', cost_header=None, note=''):
+                 cache_tag='', cost_header=None, note='', reasoning=None):
         self.name = name
         self.chat_url = chat_url
         self.key_name = key_name
@@ -45,6 +53,7 @@ class Profile(object):
         self.cache_tag = cache_tag
         self.cost_header = cost_header
         self.note = note
+        self.reasoning = dict(reasoning or {})
 
     # ---- роли -------------------------------------------------------------
     def address(self, role):
@@ -74,6 +83,29 @@ class Profile(object):
                       f'профиля.', UnknownModel, stacklevel=2)
         return None
 
+    # ---- режим рассуждений ------------------------------------------------
+    def effort_for(self, model):
+        """`reasoning_effort` для этой модели, или '' — если режим не задан.
+
+        Ищется по роли, которой принадлежит модель: настройка задаётся ролью, потому
+        что отклик на параметр у ролей разный. Роль, которой модель не принадлежит,
+        настройки не получает — иначе эскалация молча унаследовала бы чужой режим.
+
+        Переменная окружения PILOT_REASONING перекрывает файл профилей: включить и
+        выключить режим нужно уметь одной строкой, не правя файл.
+        """
+        env = os.environ.get(REASONING_VAR)
+        if env is not None:
+            return _parse_reasoning(env).get(self._role_of(model), '')
+        return self.reasoning.get(self._role_of(model), '')
+
+    def _role_of(self, model):
+        """какая роль принадлежит этому адресу; '' — если ничья"""
+        for role in REASONING_ROLES:
+            if self.roles.get(role) and self.roles[role] == model:
+                return role
+        return ''
+
     # ---- ключ кэша --------------------------------------------------------
     def cache_suffix(self):
         """что добавляется в имя файла кэша; у прежнего поставщика — ничего"""
@@ -84,11 +116,29 @@ class Profile(object):
     def __repr__(self):
         return (f'Profile({self.name!r}, url_len={len(self.chat_url)}, '
                 f'key={self.key_name!r}, roles={sorted(self.roles)}, '
-                f'prices={len(self.prices)}, cache_suffix={self.cache_suffix()!r})')
+                f'prices={len(self.prices)}, cache_suffix={self.cache_suffix()!r}, '
+                f'reasoning={self.reasoning!r})')
 
 
 PROFILES = {}
 _ACTIVE = {}
+
+
+def _parse_reasoning(text):
+    """'main=none,esc=low' -> {'main': 'none', 'esc': 'low'}.
+
+    Непонятное пропускается молча: переменная окружения — не то место, где стоит
+    ронять сборку запроса. Роль, которой нет в профиле, отсеивается вызывающим.
+    """
+    out = {}
+    for part in str(text or '').split(','):
+        if '=' not in part:
+            continue
+        role, _, effort = part.partition('=')
+        role, effort = role.strip(), effort.strip()
+        if role in REASONING_ROLES and effort:
+            out[role] = effort
+    return out
 
 
 def register(profile):
@@ -117,7 +167,8 @@ def load_profiles(path=None):
             prices={k: tuple(v) for k, v in (spec.get('prices') or {}).items()},
             cache_tag=spec.get('cache_tag') or '',
             cost_header=spec.get('cost_header'),
-            note=spec.get('note') or '')
+            note=spec.get('note') or '',
+            reasoning=spec.get('reasoning') or {})
     return out
 
 
@@ -184,9 +235,12 @@ def build_request(profile, model, messages, key, temperature=0.1, max_tokens=819
         raise ValueError(f'пустой адрес модели для профиля {profile.name!r}')
     url = profile.chat_url
     headers = {'Authorization': 'Bearer ' + (key or ''), 'Content-Type': 'application/json'}
-    body = json.dumps({'model': model, 'messages': messages,
-                       'temperature': temperature, 'max_tokens': max_tokens}).encode()
-    return url, headers, body
+    payload = {'model': model, 'messages': messages,
+               'temperature': temperature, 'max_tokens': max_tokens}
+    effort = profile.effort_for(model)
+    if effort:
+        payload['reasoning_effort'] = effort
+    return url, headers, json.dumps(payload).encode()
 
 
 def cost_from_headers(profile, headers):
