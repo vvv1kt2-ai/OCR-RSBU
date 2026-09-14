@@ -1,0 +1,140 @@
+=== Row-by-row fill analysis ===
+
+Row  1: A=Эмитент                        bold=True A_fill=[type=solid, fg=FF4472C4] B_fill=[fg=FF4472C4]
+Row  2: A=None                           bold=False A_fill=[none] B_fill=[fg=FFD6E4F0]
+Row  3: A=ТГК-14                         bold=False A_fill=[none] B_fill=[]
+Row  4: A=КИФА                           bold=False A_fill=[none] B_fill=[]
+Row  5: A=Проект 111                     bold=False A_fill=[none] B_fill=[]
+Row  6: A=Афанасий                       bold=False A_fill=[none] B_fill=[]
+Row  7: A=Омега                          bold=False A_fill=[none] B_fill=[]
+Row  8: A=Байсэл                         bold=False A_fill=[none] B_fill=[]
+Row  9: A=Бианка премиум                 bold=False A_fill=[none] B_fill=[]
+Row 10: A=Сибсульфур                     bold=False A_fill=[none] B_fill=[]
+Row 11: A=Простая еда                    bold=False A_fill=[none] B_fill=[]
+Row 12: A=Славянск ЭКО                   bold=False A_fill=[none] B_fill=[]
+Row 13: A=НовосибирскАвтодор             bold=False A_fill=[none] B_fill=[]
+Row 14: A=Моторные технологии            bold=False A_fill=[none] B_fill=[]
+Row 15: A=Эфферон                        bold=False A_fill=[none] B_fill=[]
+Row 16: A=Эфферон МСФО                   bold=False A_fill=[none] B_fill=[fg=FFF2F2F2]
+Row 17: A=Нижегородец Восток             bold=False A_fill=[none] B_fill=[]
+Row 18: A=Финэква                        bold=False A_fill=[none] B_fill=[]
+Row 19: A=Органик парк                   bold=False A_fill=[none] B_fill=[]
+Row 20: A=ИПС                            bold=False A_fill=[none] B_fill=[]
+Row 21: A=Артген (ИСКЧ) МСФО             bold=False A_fill=[none] B_fill=[fg=FFF2F2F2]
+Row 22: A=Артген (ИСКЧ)                  bold=False A_fill=[none] B_fill=[]
+Row 23: A=Смартфакт                      bold=False A_fill=[none] B_fill=[]
+Row 24: A=КЛВЗ Кристалл                  bold=False A_fill=[none] B_fill=[]
+Row 25: A=Корпсан                        bold=False A_fill=[type=solid, fg=Values must be of type <class 'str'>] B_fill=[fg=Values must be of type <class 'str'>]
+Row 26: A=Рекорд трейд                   bold=False A_fill=[type=solid, fg=Values must be of type <class 'str'>] B_fill=[fg=Values must be of type <class 'str'>]
+Row 27: A=None                           bold=False A_fill=[none] B_fill=[]
+Row 28: A=Обозначения:                   bold=True A_fill=[none] B_fill=[]
+Row 29: A=None                           bold=False A_fill=[type=solid, fg=FFFFC7CE] B_fill=[]
+Row 30: A=None                           bold=False A_fill=[type=solid, fg=FFFFD966] B_fill=[]
+Row 31: A=None                           bold=False A_fill=[type=solid, fg=FFD9D9D9] B_fill=[]
+Row 32: A=None                           bold=False A_fill=[type=solid, fg=FFF2F2F2] B_fill=[]
+Row 33: A=Единица измерения:             bold=True A_fill=[none] B_fill=[]
+
+=== Legend rows (28-33) detail ===
+
+Row 28: Col1='Обозначения:'[]
+Row 29: Col1=None[fg=FFFFC7CE] | Col2='Требует проверки (правила баланса не сошлись)'[]
+Row 30: Col1=None[fg=FFFFD966] | Col2='Подозрение на дубль арендных обязательств'[]
+Row 31: Col1=None[fg=FFD9D9D9] | Col2='Нет данных за этот год (нет файла)'[]
+Row 32: Col1=None[fg=FFF2F2F2] | Col2='Эмитент МСФО — ячейки не заполняются'[]
+Row 33: Col1='Единица измерения:'[] | Col2='тыс. руб. (ОКЕИ 384). Омега 2025: JSON-метка «рублей» некорректна, данные в тыс. руб.'[]
+
+=== Row 25 (Корпсан) — full cell detail ===
+
+  Col 1: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 2: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 3: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 4: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 5: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 6: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 7: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 8: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 9: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 10: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 11: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 12: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 13: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 14: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 15: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 16: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 17: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 18: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 19: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 20: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 21: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 22: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 23: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 24: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 25: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+
+=== Row 26 (Рекорд трейд) — full cell detail ===
+
+  Col 1: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 2: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 3: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 4: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 5: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 6: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 7: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 8: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 9: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 10: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 11: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 12: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 13: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 14: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 15: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 16: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 17: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 18: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 19: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 20: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 21: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 22: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 23: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 24: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+  Col 25: patternType=solid fgType=indexed fgRgb=Values must be of type <class 'str'> fgTheme=Values must be of type <class 'int'> fgIndexed=5 bgType=indexed bgRgb=Values must be of type <class 'str'> bgTheme=Values must be of type <class 'int'>
+
+=== Row 29 (legend item 1 — pink) full ===
+
+  Col 1: val=None fgRgb=FFFFC7CE
+  Col 2: val='Требует проверки (правила баланса не сошлись)'
+  Col 3: val=None
+  Col 4: val=None
+  Col 5: val=None
+
+=== Row 30 (legend item 2 — yellow) full ===
+
+  Col 1: val=None fgRgb=FFFFD966
+  Col 2: val='Подозрение на дубль арендных обязательств'
+  Col 3: val=None
+  Col 4: val=None
+  Col 5: val=None
+
+=== Row 31 (legend item 3 — dark gray) full ===
+
+  Col 1: val=None fgRgb=FFD9D9D9
+  Col 2: val='Нет данных за этот год (нет файла)'
+  Col 3: val=None
+  Col 4: val=None
+  Col 5: val=None
+
+=== Row 32 (legend item 4 — light gray) full ===
+
+  Col 1: val=None fgRgb=FFF2F2F2
+  Col 2: val='Эмитент МСФО — ячейки не заполняются'
+  Col 3: val=None
+  Col 4: val=None
+  Col 5: val=None
+
+=== Row 33 (Единица измерения) full ===
+
+  Col 1: val='Единица измерения:'
+  Col 2: val='тыс. руб. (ОКЕИ 384). Омега 2025: JSON-метка «рублей» некорректна, данные в тыс. руб.'
+  Col 3: val=None
+  Col 4: val=None
+  Col 5: val=None

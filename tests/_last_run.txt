@@ -1,0 +1,84 @@
+=== 1. model_tag never returns an empty tag ===
+  ok   model_tag('google/gemini-3.8-flash') = 'gemini-3.8-flash' is non-empty and filesystem-safe
+  ok   model_tag('anthropic/') = 'anthropic' is non-empty and filesystem-safe
+  ok   model_tag('') = 'unknown' is non-empty and filesystem-safe
+  ok   model_tag('x/y/z') = 'z' is non-empty and filesystem-safe
+  ok   model_tag('google/gemini-2.5-flash-lite') = 'gemini-2.5-flash-lite' is non-empty and filesystem-safe
+  ok   a trailing slash cannot produce an empty tag
+  ok   the real escalation model keeps the tag the old formula produced
+
+=== 2. two documents never share a page-cache key ===
+  ok   same page/dpi/model of two different PDFs -> different paths
+  ok   the model tag appears in the key
+  ok   the PDF fingerprint appears in the key
+  ok   fingerprint differs between the two PDFs
+  ok   every page transcript on disk names a model (none empty)
+
+=== 3. a key that does not identify the document is refused ===
+  ok   name='x' refused
+  ok   name='esc' refused
+  ok   name='' refused
+  ok   name='какой-то_другой_документ.pdf' refused
+
+=== 4. escalation is refused when the artifact describes another document ===
+  ok   the quarantined guilty artifacts are present to test against
+  ok   Органик парк_6мес_2025.pdf refused (file year vs latest column)
+  ok   ТГК-14_6мес_2025.pdf refused (file year vs latest column)
+  ok   ТГК-14_6мес_2026.pdf allowed (same-year foreign doc: caught by the key, not by the year)
+
+=== 5. the guard does not fire on genuine artifacts ===
+  ok   genuine artifacts exist to test against
+  ok   no false positives on the 15 genuine artifacts
+
+=== 6. sibling conflict detection finds the known reclassification ===
+  ok   conflicts found between the 2026 and the 2025 report
+  ok   code 1250 is among them
+  ok   the 1250 conflict is the reclassification 5160 vs 92960
+  ok   the shared date really is 31.12.2024
+  ok   a document with no sibling year yields no conflicts
+
+=== 7. date parsing ===
+  ok   column_date('На 31 декабря 2024 г.') = '2024-12-31'
+  ok   column_date('На 30 июня 2025 г.') = '2025-06-30'
+  ok   column_date('На 30 Июня 2025 г.') = '2025-06-30'
+  ok   column_date('31.12.2024') = '2024-12-31'
+  ok   column_date('') = None
+  ok   column_date('Итого') = None
+
+=== 8. the provider is part of the key (ticket 03) ===
+  ok   Polza key is byte-identical to the old formula
+  ok   Polza key is byte-identical for the main model too
+  ok   another provider gets a different key
+  ok   the provider tag is visible in the key
+  ok   another provider still names the model
+  ok   another provider still carries the PDF fingerprint
+  ok   same model name at two providers -> two different keys
+  ok   two variants of one model -> two different keys
+  ok   the variant survives sanitising as a readable suffix
+  ok   the default variant keeps the plain model name
+  ok   a non-Latin model id still yields a non-empty tag
+  ok   two variants of a non-Latin model id still differ
+  ok   name='x' refused with an explicit profile
+  ok   name='' refused with an explicit profile
+  ok   name='какой-то_другой_документ.pdf' refused with an explicit profile
+
+=== 9. diagnostic transcript dumps name the provider too ===
+  ok   the dump path is built from the shared provider helper
+  ok   the cache key uses the same helper as the dump
+  ok   the dump suffix is empty for Polza (existing names keep their meaning)
+  ok   the helper yields an underscore-prefixed fragment for another provider
+
+=== 10. provider-produced JSON caches name the provider too ===
+  ok   the structured-cache path carries the provider infix
+  ok   the path is built in exactly one place, so no call site can bypass it
+  ok   there are cached structured artifacts to check against
+  ok   no PlusVibe structured cache exists under a Polza-style name
+  ok   the Polza infix is empty, so those names are unchanged
+  ok   another provider gets its own structured cache
+
+=== 11. every existing key on disk stays reachable for Polza ===
+  ok   there are page transcripts to check against
+  ok   the key formula reproduces the names already on disk
+
+============================================================
+passed: 60   failed: 0

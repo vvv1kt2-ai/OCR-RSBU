@@ -1,0 +1,80 @@
+[
+ {
+  "stem": "Омега_6мес_2025",
+  "page": 14,
+  "polza_self_absent": 26,
+  "polza_self_under": 33,
+  "pv_self_absent": 0,
+  "pv_self_under": 0,
+  "cross_absent": 0,
+  "pfin": "length",
+  "vfin": "stop",
+  "p_ct": 15996,
+  "v_ct": 4780
+ },
+ {
+  "stem": "Артген (ИСКЧ)_6мес_2025",
+  "page": 30,
+  "polza_self_absent": 0,
+  "polza_self_under": 27,
+  "pv_self_absent": 0,
+  "pv_self_under": 0,
+  "cross_absent": 0,
+  "pfin": "stop",
+  "vfin": "stop",
+  "p_ct": 4403,
+  "v_ct": 5470
+ },
+ {
+  "stem": "НовосибирскАвтодор_6мес_2026",
+  "page": 42,
+  "polza_self_absent": 1,
+  "polza_self_under": 7,
+  "pv_self_absent": 0,
+  "pv_self_under": 4,
+  "cross_absent": 1,
+  "pfin": "stop",
+  "vfin": "stop",
+  "p_ct": 4350,
+  "v_ct": 6231
+ },
+ {
+  "stem": "Органик парк_6мес_2025",
+  "page": 2,
+  "polza_self_absent": 20,
+  "polza_self_under": 16,
+  "pv_self_absent": 0,
+  "pv_self_under": 0,
+  "cross_absent": 20,
+  "pfin": "stop",
+  "vfin": "stop",
+  "p_ct": 9868,
+  "v_ct": 9239
+ },
+ {
+  "stem": "Байсэл_6мес_2025",
+  "page": 19,
+  "polza_self_absent": 0,
+  "polza_self_under": 0,
+  "pv_self_absent": 0,
+  "pv_self_under": 0,
+  "cross_absent": 0,
+  "pfin": "stop",
+  "vfin": "stop",
+  "p_ct": 8799,
+  "v_ct": 4963
+ },
+ {
+  "stem": "ТГК-14_6мес_2025",
+  "page": 6,
+  "polza_self_absent": 1,
+  "polza_self_under": 0,
+  "pv_self_absent": 0,
+  "pv_self_under": 0,
+  "cross_absent": 0,
+  "pfin": "stop",
+  "vfin": "stop",
+  "p_ct": 6878,
+  "v_ct": 7248
+ }
+]

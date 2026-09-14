@@ -1,0 +1,1366 @@
+{
+ "totals": {
+  "none": 4662,
+  "files": 173,
+  "pages": 5884,
+  "files_all_none": 130,
+  "files_no_good_text": 134,
+  "good": 1021,
+  "form_good": 270,
+  "files_form_in_good_text_only": 31,
+  "garbled": 201,
+  "form_garbled": 15,
+  "files_all_good": 6
+ },
+ "files": {
+  "А спэйс_6мес_2025.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "А спэйс_6мес_2026.pdf": {
+   "pages": 38,
+   "cls": {
+    "none": 38
+   },
+   "form_by_cls": {}
+  },
+  "АБЗ-1_6мес_2025.pdf": {
+   "pages": 31,
+   "cls": {
+    "none": 31
+   },
+   "form_by_cls": {}
+  },
+  "АБЗ-1_6мес_2026.pdf": {
+   "pages": 57,
+   "cls": {
+    "none": 57
+   },
+   "form_by_cls": {}
+  },
+  "АСГ Трансформаторен_6мес_2026.pdf": {
+   "pages": 48,
+   "cls": {
+    "none": 42,
+    "good": 6
+   },
+   "form_by_cls": {
+    "good": 3
+   }
+  },
+  "Агротек_6мес_2025.pdf": {
+   "pages": 37,
+   "cls": {
+    "garbled": 36,
+    "none": 1
+   },
+   "form_by_cls": {
+    "garbled": 3
+   }
+  },
+  "Агротек_6мес_2026.pdf": {
+   "pages": 29,
+   "cls": {
+    "garbled": 27,
+    "none": 2
+   },
+   "form_by_cls": {
+    "garbled": 4
+   }
+  },
+  "АдвансТрак_6мес_2026.pdf": {
+   "pages": 33,
+   "cls": {
+    "none": 33
+   },
+   "form_by_cls": {}
+  },
+  "АйДи Коллект_6мес_2025.pdf": {
+   "pages": 36,
+   "cls": {
+    "none": 36
+   },
+   "form_by_cls": {}
+  },
+  "АйДи Коллект_6мес_2026.pdf": {
+   "pages": 23,
+   "cls": {
+    "none": 23
+   },
+   "form_by_cls": {}
+  },
+  "Айдеко_6мес_2025.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "Айдеко_6мес_2026.pdf": {
+   "pages": 37,
+   "cls": {
+    "none": 37
+   },
+   "form_by_cls": {}
+  },
+  "Антерра_6мес_2025.pdf": {
+   "pages": 43,
+   "cls": {
+    "none": 16,
+    "garbled": 1,
+    "good": 26
+   },
+   "form_by_cls": {
+    "garbled": 1,
+    "good": 26
+   }
+  },
+  "Антерра_6мес_2026.pdf": {
+   "pages": 37,
+   "cls": {
+    "none": 37
+   },
+   "form_by_cls": {}
+  },
+  "Арлифт Интернешнл_6мес_2025.pdf": {
+   "pages": 27,
+   "cls": {
+    "none": 27
+   },
+   "form_by_cls": {}
+  },
+  "Арлифт Интернешнл_6мес_2026.pdf": {
+   "pages": 37,
+   "cls": {
+    "none": 37
+   },
+   "form_by_cls": {}
+  },
+  "Артген (ИСКЧ)_6мес_2025.pdf": {
+   "pages": 44,
+   "cls": {
+    "none": 44
+   },
+   "form_by_cls": {}
+  },
+  "Артген (ИСКЧ)_6мес_2026.pdf": {
+   "pages": 47,
+   "cls": {
+    "none": 47
+   },
+   "form_by_cls": {}
+  },
+  "Афанасий_6мес_2025.pdf": {
+   "pages": 5,
+   "cls": {
+    "good": 5
+   },
+   "form_by_cls": {
+    "good": 4
+   }
+  },
+  "Афанасий_6мес_2026.pdf": {
+   "pages": 4,
+   "cls": {
+    "good": 4
+   },
+   "form_by_cls": {
+    "good": 3
+   }
+  },
+  "Байсэл_6мес_2025.pdf": {
+   "pages": 38,
+   "cls": {
+    "none": 38
+   },
+   "form_by_cls": {}
+  },
+  "Байсэл_6мес_2026.pdf": {
+   "pages": 26,
+   "cls": {
+    "none": 26
+   },
+   "form_by_cls": {}
+  },
+  "Баррель_6мес_2025.pdf": {
+   "pages": 32,
+   "cls": {
+    "none": 32
+   },
+   "form_by_cls": {}
+  },
+  "Баррель_6мес_2026.pdf": {
+   "pages": 15,
+   "cls": {
+    "none": 15
+   },
+   "form_by_cls": {}
+  },
+  "Бианка премиум_6мес_2025.pdf": {
+   "pages": 28,
+   "cls": {
+    "good": 27,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Бианка премиум_6мес_2026.pdf": {
+   "pages": 38,
+   "cls": {
+    "good": 36,
+    "garbled": 2
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Биовитрум_6мес_2025.pdf": {
+   "pages": 49,
+   "cls": {
+    "none": 49
+   },
+   "form_by_cls": {}
+  },
+  "Биовитрум_6мес_2026.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "ВЗВТ_6мес_2025.pdf": {
+   "pages": 36,
+   "cls": {
+    "good": 21,
+    "garbled": 12,
+    "none": 3
+   },
+   "form_by_cls": {
+    "good": 5
+   }
+  },
+  "ВЗВТ_6мес_2026.pdf": {
+   "pages": 68,
+   "cls": {
+    "good": 64,
+    "garbled": 4
+   },
+   "form_by_cls": {
+    "good": 12
+   }
+  },
+  "Векус_6мес_2025.pdf": {
+   "pages": 29,
+   "cls": {
+    "none": 29
+   },
+   "form_by_cls": {}
+  },
+  "Векус_6мес_2026.pdf": {
+   "pages": 43,
+   "cls": {
+    "none": 43
+   },
+   "form_by_cls": {}
+  },
+  "Виллина_6мес_2025.pdf": {
+   "pages": 41,
+   "cls": {
+    "none": 41
+   },
+   "form_by_cls": {}
+  },
+  "Виллина_6мес_2026.pdf": {
+   "pages": 40,
+   "cls": {
+    "good": 32,
+    "none": 5,
+    "garbled": 3
+   },
+   "form_by_cls": {
+    "good": 6
+   }
+  },
+  "Воксис_6мес_2025.pdf": {
+   "pages": 18,
+   "cls": {
+    "none": 18
+   },
+   "form_by_cls": {}
+  },
+  "Воксис_6мес_2026.pdf": {
+   "pages": 73,
+   "cls": {
+    "none": 73
+   },
+   "form_by_cls": {}
+  },
+  "Восток Ойл_6мес_2026.pdf": {
+   "pages": 52,
+   "cls": {
+    "none": 52
+   },
+   "form_by_cls": {}
+  },
+  "ГК Солтон_6мес_2025.pdf": {
+   "pages": 7,
+   "cls": {
+    "none": 7
+   },
+   "form_by_cls": {}
+  },
+  "ГК Солтон_6мес_2026.pdf": {
+   "pages": 39,
+   "cls": {
+    "none": 39
+   },
+   "form_by_cls": {}
+  },
+  "Гельтек-Медика_6мес_2025.pdf": {
+   "pages": 7,
+   "cls": {
+    "none": 7
+   },
+   "form_by_cls": {}
+  },
+  "Гельтек-Медика_6мес_2026.pdf": {
+   "pages": 29,
+   "cls": {
+    "garbled": 1,
+    "good": 9,
+    "none": 19
+   },
+   "form_by_cls": {
+    "garbled": 1,
+    "good": 1
+   }
+  },
+  "Группа Продовольствие_6мес_2025.pdf": {
+   "pages": 4,
+   "cls": {
+    "none": 4
+   },
+   "form_by_cls": {}
+  },
+  "Группа Продовольствие_6мес_2026.pdf": {
+   "pages": 36,
+   "cls": {
+    "none": 36
+   },
+   "form_by_cls": {}
+  },
+  "Девар Петро_6мес_2025.pdf": {
+   "pages": 41,
+   "cls": {
+    "none": 41
+   },
+   "form_by_cls": {}
+  },
+  "Девар Петро_6мес_2026.pdf": {
+   "pages": 14,
+   "cls": {
+    "good": 14
+   },
+   "form_by_cls": {
+    "good": 7
+   }
+  },
+  "Денум_6мес_2025.pdf": {
+   "pages": 21,
+   "cls": {
+    "none": 21
+   },
+   "form_by_cls": {}
+  },
+  "Денум_6мес_2026.pdf": {
+   "pages": 43,
+   "cls": {
+    "none": 43
+   },
+   "form_by_cls": {}
+  },
+  "ИПС_6мес_2025.pdf": {
+   "pages": 44,
+   "cls": {
+    "none": 44
+   },
+   "form_by_cls": {}
+  },
+  "ИПС_6мес_2026.pdf": {
+   "pages": 65,
+   "cls": {
+    "none": 16,
+    "good": 49
+   },
+   "form_by_cls": {
+    "good": 11
+   }
+  },
+  "Интел Коллект_6мес_2025.pdf": {
+   "pages": 14,
+   "cls": {
+    "none": 14
+   },
+   "form_by_cls": {}
+  },
+  "Интел Коллект_6мес_2026.pdf": {
+   "pages": 49,
+   "cls": {
+    "none": 49
+   },
+   "form_by_cls": {}
+  },
+  "Истринская Сыроварня_6мес_2025.pdf": {
+   "pages": 27,
+   "cls": {
+    "good": 25,
+    "garbled": 2
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Йуми_6мес_2025.pdf": {
+   "pages": 45,
+   "cls": {
+    "none": 45
+   },
+   "form_by_cls": {}
+  },
+  "Йуми_6мес_2026.pdf": {
+   "pages": 42,
+   "cls": {
+    "none": 14,
+    "good": 26,
+    "garbled": 2
+   },
+   "form_by_cls": {
+    "good": 1
+   }
+  },
+  "КИФА_6мес_2025.pdf": {
+   "pages": 27,
+   "cls": {
+    "none": 27
+   },
+   "form_by_cls": {}
+  },
+  "КИФА_6мес_2026.pdf": {
+   "pages": 27,
+   "cls": {
+    "good": 22,
+    "none": 5
+   },
+   "form_by_cls": {
+    "good": 7
+   }
+  },
+  "КЛВЗ Кристалл_6мес_2025.pdf": {
+   "pages": 33,
+   "cls": {
+    "none": 33
+   },
+   "form_by_cls": {}
+  },
+  "КЛВЗ Кристалл_6мес_2026.pdf": {
+   "pages": 29,
+   "cls": {
+    "none": 29
+   },
+   "form_by_cls": {}
+  },
+  "КЛС-Трейд (Интерскол)_6мес_2025.pdf": {
+   "pages": 30,
+   "cls": {
+    "none": 30
+   },
+   "form_by_cls": {}
+  },
+  "КЛС-Трейд (Интерскол)_6мес_2026.pdf": {
+   "pages": 29,
+   "cls": {
+    "none": 29
+   },
+   "form_by_cls": {}
+  },
+  "Кеарли групп_6мес_2025.pdf": {
+   "pages": 39,
+   "cls": {
+    "good": 38,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 10
+   }
+  },
+  "Кеарли групп_6мес_2026.pdf": {
+   "pages": 45,
+   "cls": {
+    "good": 45
+   },
+   "form_by_cls": {
+    "good": 11
+   }
+  },
+  "Корпсан_6мес_2025.pdf": {
+   "pages": 12,
+   "cls": {
+    "none": 12
+   },
+   "form_by_cls": {}
+  },
+  "Корпсан_6мес_2026.pdf": {
+   "pages": 12,
+   "cls": {
+    "none": 12
+   },
+   "form_by_cls": {}
+  },
+  "Кронос_6мес_2026.pdf": {
+   "pages": 35,
+   "cls": {
+    "none": 35
+   },
+   "form_by_cls": {}
+  },
+  "Л-старт_6мес_2025.pdf": {
+   "pages": 43,
+   "cls": {
+    "none": 43
+   },
+   "form_by_cls": {}
+  },
+  "Л-старт_6мес_2026.pdf": {
+   "pages": 41,
+   "cls": {
+    "none": 41
+   },
+   "form_by_cls": {}
+  },
+  "ЛК Прогресс_6мес_2026.pdf": {
+   "pages": 79,
+   "cls": {
+    "none": 79
+   },
+   "form_by_cls": {}
+  },
+  "Лазерные системы_6мес_2025.pdf": {
+   "pages": 46,
+   "cls": {
+    "good": 2,
+    "none": 44
+   },
+   "form_by_cls": {
+    "good": 1
+   }
+  },
+  "Лазерные системы_6мес_2026.pdf": {
+   "pages": 44,
+   "cls": {
+    "none": 44
+   },
+   "form_by_cls": {}
+  },
+  "Ландскейп_6мес_2025.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "Ландскейп_6мес_2026.pdf": {
+   "pages": 48,
+   "cls": {
+    "good": 47,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 12,
+    "garbled": 1
+   }
+  },
+  "ММЦБ_6мес_2025.pdf": {
+   "pages": 36,
+   "cls": {
+    "none": 36
+   },
+   "form_by_cls": {}
+  },
+  "ММЦБ_6мес_2026.pdf": {
+   "pages": 39,
+   "cls": {
+    "none": 39
+   },
+   "form_by_cls": {}
+  },
+  "Моторные технологии_6мес_2025.pdf": {
+   "pages": 38,
+   "cls": {
+    "none": 38
+   },
+   "form_by_cls": {}
+  },
+  "Моторные технологии_6мес_2026.pdf": {
+   "pages": 33,
+   "cls": {
+    "none": 33
+   },
+   "form_by_cls": {}
+  },
+  "НЗРМ_6мес_2025.pdf": {
+   "pages": 34,
+   "cls": {
+    "none": 34
+   },
+   "form_by_cls": {}
+  },
+  "НЗРМ_6мес_2026.pdf": {
+   "pages": 27,
+   "cls": {
+    "none": 27
+   },
+   "form_by_cls": {}
+  },
+  "НеоПак_6мес_2025.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "НеоПак_6мес_2026.pdf": {
+   "pages": 22,
+   "cls": {
+    "none": 22
+   },
+   "form_by_cls": {}
+  },
+  "Нижегородец Восток_6мес_2025.pdf": {
+   "pages": 4,
+   "cls": {
+    "none": 4
+   },
+   "form_by_cls": {}
+  },
+  "Нижегородец Восток_6мес_2026.pdf": {
+   "pages": 8,
+   "cls": {
+    "none": 8
+   },
+   "form_by_cls": {}
+  },
+  "НовосибирскАвтодор_6мес_2025.pdf": {
+   "pages": 49,
+   "cls": {
+    "none": 20,
+    "garbled": 1,
+    "good": 28
+   },
+   "form_by_cls": {
+    "garbled": 1,
+    "good": 6
+   }
+  },
+  "НовосибирскАвтодор_6мес_2026.pdf": {
+   "pages": 51,
+   "cls": {
+    "none": 51
+   },
+   "form_by_cls": {}
+  },
+  "Озон_6мес_2025.pdf": {
+   "pages": 29,
+   "cls": {
+    "none": 29
+   },
+   "form_by_cls": {}
+  },
+  "Озон_6мес_2026.pdf": {
+   "pages": 32,
+   "cls": {
+    "none": 32
+   },
+   "form_by_cls": {}
+  },
+  "Омега_6мес_2025.pdf": {
+   "pages": 31,
+   "cls": {
+    "none": 31
+   },
+   "form_by_cls": {}
+  },
+  "Омега_6мес_2026.pdf": {
+   "pages": 40,
+   "cls": {
+    "none": 40
+   },
+   "form_by_cls": {}
+  },
+  "Органик парк_6мес_2025.pdf": {
+   "pages": 18,
+   "cls": {
+    "none": 18
+   },
+   "form_by_cls": {}
+  },
+  "Органик парк_6мес_2026.pdf": {
+   "pages": 14,
+   "cls": {
+    "none": 14
+   },
+   "form_by_cls": {}
+  },
+  "ПКО ЮСВ_6мес_2025.pdf": {
+   "pages": 25,
+   "cls": {
+    "none": 25
+   },
+   "form_by_cls": {}
+  },
+  "ПКО ЮСВ_6мес_2026.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "ПЭТ Пласт_6мес_2025.pdf": {
+   "pages": 40,
+   "cls": {
+    "none": 40
+   },
+   "form_by_cls": {}
+  },
+  "ПЭТ Пласт_6мес_2026.pdf": {
+   "pages": 57,
+   "cls": {
+    "none": 57
+   },
+   "form_by_cls": {}
+  },
+  "Парк Сказка_6мес_2025.pdf": {
+   "pages": 16,
+   "cls": {
+    "none": 16
+   },
+   "form_by_cls": {}
+  },
+  "Парк Сказка_6мес_2026.pdf": {
+   "pages": 19,
+   "cls": {
+    "good": 18,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Плаза-Телеком_6мес_2025.pdf": {
+   "pages": 35,
+   "cls": {
+    "none": 35
+   },
+   "form_by_cls": {}
+  },
+  "Плаза-Телеком_6мес_2026.pdf": {
+   "pages": 26,
+   "cls": {
+    "none": 26
+   },
+   "form_by_cls": {}
+  },
+  "Поликлиника.ру_6мес_2025.pdf": {
+   "pages": 37,
+   "cls": {
+    "none": 37
+   },
+   "form_by_cls": {}
+  },
+  "Поликлиника.ру_6мес_2026.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "Проект 111_6мес_2025.pdf": {
+   "pages": 37,
+   "cls": {
+    "good": 36,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Проект 111_6мес_2026.pdf": {
+   "pages": 28,
+   "cls": {
+    "good": 23,
+    "none": 4,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 5
+   }
+  },
+  "Простая еда_6мес_2025.pdf": {
+   "pages": 32,
+   "cls": {
+    "none": 32
+   },
+   "form_by_cls": {}
+  },
+  "Простая еда_6мес_2026.pdf": {
+   "pages": 27,
+   "cls": {
+    "garbled": 25,
+    "none": 2
+   },
+   "form_by_cls": {
+    "garbled": 1
+   }
+  },
+  "РДВ_6мес_2025.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "РДВ_6мес_2026.pdf": {
+   "pages": 22,
+   "cls": {
+    "none": 22
+   },
+   "form_by_cls": {}
+  },
+  "Регионспецтранс_6мес_2025.pdf": {
+   "pages": 29,
+   "cls": {
+    "none": 29
+   },
+   "form_by_cls": {}
+  },
+  "Реиннольц_6мес_2025.pdf": {
+   "pages": 33,
+   "cls": {
+    "none": 33
+   },
+   "form_by_cls": {}
+  },
+  "Реиннольц_6мес_2026.pdf": {
+   "pages": 62,
+   "cls": {
+    "none": 62
+   },
+   "form_by_cls": {}
+  },
+  "Рекорд трейд_6мес_2025.pdf": {
+   "pages": 27,
+   "cls": {
+    "none": 27
+   },
+   "form_by_cls": {}
+  },
+  "Рекорд трейд_6мес_2026.pdf": {
+   "pages": 25,
+   "cls": {
+    "good": 25
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Руссойл_6мес_2025.pdf": {
+   "pages": 8,
+   "cls": {
+    "none": 8
+   },
+   "form_by_cls": {}
+  },
+  "Руссойл_6мес_2026.pdf": {
+   "pages": 16,
+   "cls": {
+    "none": 16
+   },
+   "form_by_cls": {}
+  },
+  "СЗА_6мес_2025.pdf": {
+   "pages": 39,
+   "cls": {
+    "none": 39
+   },
+   "form_by_cls": {}
+  },
+  "СЗА_6мес_2026.pdf": {
+   "pages": 33,
+   "cls": {
+    "none": 33
+   },
+   "form_by_cls": {}
+  },
+  "СПМК_3мес_2025.pdf": {
+   "pages": 31,
+   "cls": {
+    "none": 31
+   },
+   "form_by_cls": {}
+  },
+  "СПМК_3мес_2026.pdf": {
+   "pages": 28,
+   "cls": {
+    "none": 28
+   },
+   "form_by_cls": {}
+  },
+  "СПМК_6мес_2025.pdf": {
+   "pages": 33,
+   "cls": {
+    "none": 33
+   },
+   "form_by_cls": {}
+  },
+  "СПМК_6мес_2026.pdf": {
+   "pages": 38,
+   "cls": {
+    "none": 38
+   },
+   "form_by_cls": {}
+  },
+  "СПМК_9мес_2025.pdf": {
+   "pages": 21,
+   "cls": {
+    "none": 21
+   },
+   "form_by_cls": {}
+  },
+  "СПМК_год_2025.pdf": {
+   "pages": 54,
+   "cls": {
+    "none": 54
+   },
+   "form_by_cls": {}
+  },
+  "СЭЗ им. Серго Орджоникидзе_6мес_2025.pdf": {
+   "pages": 15,
+   "cls": {
+    "none": 15
+   },
+   "form_by_cls": {}
+  },
+  "СЭЗ им. Серго Орджоникидзе_6мес_2026.pdf": {
+   "pages": 26,
+   "cls": {
+    "none": 26
+   },
+   "form_by_cls": {}
+  },
+  "Селл-Сервис_6мес_2025.pdf": {
+   "pages": 33,
+   "cls": {
+    "none": 33
+   },
+   "form_by_cls": {}
+  },
+  "Селл-Сервис_6мес_2026.pdf": {
+   "pages": 41,
+   "cls": {
+    "none": 22,
+    "good": 19
+   },
+   "form_by_cls": {
+    "good": 1
+   }
+  },
+  "Сергиевское_6мес_2025.pdf": {
+   "pages": 5,
+   "cls": {
+    "none": 5
+   },
+   "form_by_cls": {}
+  },
+  "Сергиевское_6мес_2026.pdf": {
+   "pages": 52,
+   "cls": {
+    "none": 52
+   },
+   "form_by_cls": {}
+  },
+  "Сибирский КХП_6мес_2025.pdf": {
+   "pages": 32,
+   "cls": {
+    "none": 32
+   },
+   "form_by_cls": {}
+  },
+  "Сибирский КХП_6мес_2026.pdf": {
+   "pages": 39,
+   "cls": {
+    "good": 36,
+    "garbled": 3
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Сибнефтехимтрейд_6мес_2025.pdf": {
+   "pages": 26,
+   "cls": {
+    "none": 26
+   },
+   "form_by_cls": {}
+  },
+  "Сибнефтехимтрейд_6мес_2026.pdf": {
+   "pages": 31,
+   "cls": {
+    "none": 31
+   },
+   "form_by_cls": {}
+  },
+  "Сибстекло_6мес_2025.pdf": {
+   "pages": 83,
+   "cls": {
+    "none": 83
+   },
+   "form_by_cls": {}
+  },
+  "Сибстекло_6мес_2026.pdf": {
+   "pages": 97,
+   "cls": {
+    "none": 97
+   },
+   "form_by_cls": {}
+  },
+  "Сибсульфур_6мес_2025.pdf": {
+   "pages": 69,
+   "cls": {
+    "good": 51,
+    "none": 17,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 18,
+    "garbled": 1
+   }
+  },
+  "Сибсульфур_6мес_2026.pdf": {
+   "pages": 70,
+   "cls": {
+    "none": 70
+   },
+   "form_by_cls": {}
+  },
+  "Славянск ЭКО_6мес_2025.pdf": {
+   "pages": 30,
+   "cls": {
+    "good": 16,
+    "garbled": 14
+   },
+   "form_by_cls": {
+    "good": 5
+   }
+  },
+  "Славянск ЭКО_6мес_2026.pdf": {
+   "pages": 19,
+   "cls": {
+    "good": 10,
+    "garbled": 9
+   },
+   "form_by_cls": {
+    "good": 3
+   }
+  },
+  "Смартфакт_6мес_2025.pdf": {
+   "pages": 20,
+   "cls": {
+    "none": 20
+   },
+   "form_by_cls": {}
+  },
+  "Смартфакт_6мес_2026.pdf": {
+   "pages": 18,
+   "cls": {
+    "none": 18
+   },
+   "form_by_cls": {}
+  },
+  "ТГК-14_6мес_2025.pdf": {
+   "pages": 18,
+   "cls": {
+    "none": 18
+   },
+   "form_by_cls": {}
+  },
+  "ТГК-14_6мес_2026.pdf": {
+   "pages": 18,
+   "cls": {
+    "none": 18
+   },
+   "form_by_cls": {}
+  },
+  "Татнефтехим_6мес_2025.pdf": {
+   "pages": 54,
+   "cls": {
+    "none": 54
+   },
+   "form_by_cls": {}
+  },
+  "Татнефтехим_6мес_2026.pdf": {
+   "pages": 34,
+   "cls": {
+    "none": 34
+   },
+   "form_by_cls": {}
+  },
+  "Технология_6мес_2025.pdf": {
+   "pages": 36,
+   "cls": {
+    "none": 36
+   },
+   "form_by_cls": {}
+  },
+  "Технология_6мес_2026.pdf": {
+   "pages": 16,
+   "cls": {
+    "none": 16
+   },
+   "form_by_cls": {}
+  },
+  "Трейдберри_6мес_2025.pdf": {
+   "pages": 25,
+   "cls": {
+    "good": 2,
+    "garbled": 1,
+    "none": 22
+   },
+   "form_by_cls": {
+    "good": 2
+   }
+  },
+  "Трейдберри_6мес_2026.pdf": {
+   "pages": 20,
+   "cls": {
+    "good": 7,
+    "none": 13
+   },
+   "form_by_cls": {
+    "good": 3
+   }
+  },
+  "УПТК65_6мес_2025.pdf": {
+   "pages": 52,
+   "cls": {
+    "good": 39,
+    "none": 13
+   },
+   "form_by_cls": {
+    "good": 6
+   }
+  },
+  "УПТК65_6мес_2026.pdf": {
+   "pages": 59,
+   "cls": {
+    "none": 59
+   },
+   "form_by_cls": {}
+  },
+  "Унител_6мес_2025.pdf": {
+   "pages": 66,
+   "cls": {
+    "none": 66
+   },
+   "form_by_cls": {}
+  },
+  "Унител_6мес_2026.pdf": {
+   "pages": 51,
+   "cls": {
+    "good": 50,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Урожай_6мес_2025.pdf": {
+   "pages": 13,
+   "cls": {
+    "none": 13
+   },
+   "form_by_cls": {}
+  },
+  "Урожай_6мес_2026.pdf": {
+   "pages": 39,
+   "cls": {
+    "good": 35,
+    "garbled": 3,
+    "none": 1
+   },
+   "form_by_cls": {
+    "good": 8
+   }
+  },
+  "Феррум_6мес_2025.pdf": {
+   "pages": 38,
+   "cls": {
+    "none": 38
+   },
+   "form_by_cls": {}
+  },
+  "Феррум_6мес_2026.pdf": {
+   "pages": 39,
+   "cls": {
+    "good": 31,
+    "garbled": 6,
+    "none": 2
+   },
+   "form_by_cls": {
+    "good": 8,
+    "garbled": 1
+   }
+  },
+  "Финэква_6мес_2026.pdf": {
+   "pages": 25,
+   "cls": {
+    "none": 25
+   },
+   "form_by_cls": {}
+  },
+  "Хромос Инжиниринг_6мес_2025.pdf": {
+   "pages": 29,
+   "cls": {
+    "none": 29
+   },
+   "form_by_cls": {}
+  },
+  "Хромос Инжиниринг_6мес_2026.pdf": {
+   "pages": 27,
+   "cls": {
+    "good": 22,
+    "none": 4,
+    "garbled": 1
+   },
+   "form_by_cls": {
+    "good": 5
+   }
+  },
+  "Центр-К_6мес_2025.pdf": {
+   "pages": 39,
+   "cls": {
+    "garbled": 39
+   },
+   "form_by_cls": {}
+  },
+  "Центр-К_6мес_2026.pdf": {
+   "pages": 51,
+   "cls": {
+    "none": 51
+   },
+   "form_by_cls": {}
+  },
+  "Центр-Резерв_6мес_2025.pdf": {
+   "pages": 19,
+   "cls": {
+    "none": 19
+   },
+   "form_by_cls": {}
+  },
+  "Центр-Резерв_6мес_2026.pdf": {
+   "pages": 19,
+   "cls": {
+    "none": 19
+   },
+   "form_by_cls": {}
+  },
+  "Электроаппарат_6мес_2025.pdf": {
+   "pages": 43,
+   "cls": {
+    "none": 43
+   },
+   "form_by_cls": {}
+  },
+  "Электроаппарат_6мес_2026.pdf": {
+   "pages": 50,
+   "cls": {
+    "none": 50
+   },
+   "form_by_cls": {}
+  },
+  "Элтера_6мес_2026.pdf": {
+   "pages": 49,
+   "cls": {
+    "good": 49
+   },
+   "form_by_cls": {
+    "good": 14
+   }
+  },
+  "Энергоника_6мес_2025.pdf": {
+   "pages": 38,
+   "cls": {
+    "none": 38
+   },
+   "form_by_cls": {}
+  },
+  "Энергоника_6мес_2026.pdf": {
+   "pages": 39,
+   "cls": {
+    "none": 39
+   },
+   "form_by_cls": {}
+  },
+  "Энерготехсервис_6мес_2025.pdf": {
+   "pages": 18,
+   "cls": {
+    "none": 18
+   },
+   "form_by_cls": {}
+  },
+  "Энерготехсервис_6мес_2026.pdf": {
+   "pages": 12,
+   "cls": {
+    "none": 12
+   },
+   "form_by_cls": {}
+  },
+  "Эффективные технологии_6мес_2025.pdf": {
+   "pages": 38,
+   "cls": {
+    "none": 38
+   },
+   "form_by_cls": {}
+  },
+  "Эффективные технологии_6мес_2026.pdf": {
+   "pages": 38,
+   "cls": {
+    "none": 33,
+    "good": 5
+   },
+   "form_by_cls": {}
+  },
+  "Эфферон_6мес_2025.pdf": {
+   "pages": 37,
+   "cls": {
+    "none": 15,
+    "garbled": 1,
+    "good": 21
+   },
+   "form_by_cls": {
+    "garbled": 1,
+    "good": 2
+   }
+  },
+  "Эфферон_6мес_2026.pdf": {
+   "pages": 37,
+   "cls": {
+    "none": 37
+   },
+   "form_by_cls": {}
+  }
+ }
+}

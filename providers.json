@@ -1,0 +1,30 @@
+{
+ "providers": {
+  "plusvibe": {
+   "chat_url": "https://plusvibeapi.ru/v1/chat/completions",
+   "key_name": "PLUSVIBE_API_KEY",
+   "roles": {
+    "main": "google/gemini-3.8-flash",
+    "detect": "deepseek-v4.1-flash",
+    "esc": "anthropic/claude-sonnet-5"
+   },
+   "prices": {
+    "google/gemini-3.8-flash": [
+     3.78,
+     18.86
+    ],
+    "deepseek-v4.1-flash": [
+     0.76,
+     3.02
+    ],
+    "anthropic/claude-sonnet-5": [
+     49.03,
+     245.15
+    ]
+   },
+   "cache_tag": "pv",
+   "cost_header": "x-pv-cost-rub",
+   "note": "адреса моделей подобраны из живого каталога PlusVibe (verify_profiles.py) и сверены по длине и sha1; метка pv входит в имена файлов кэша, ключи Polza не тронуты"
+  }
+ }
+}
