@@ -572,17 +572,34 @@ def _normalize_llm(llm, form_key=None):
 
 # ---------------------------------------------------------------- scan branch
 DETECT_PROMPT = ('Даны страницы PDF по порядку (последняя строка каждого приложения = номер страницы). '
-                 'Определи для каждой формы: balance (Бухгалтерский баланс, 0710001), income_statement (Отчет о финансовых результатах, 0710002), '
-                 'cash_flow (Отчет о движении денежных средств, 0710005), other. '
+                 'Определи для каждой страницы РОВНО одну категорию: '
+                 'balance (Бухгалтерский баланс, 0710001), income_statement (Отчет о финансовых результатах, 0710002), '
+                 'cash_flow (Отчет о движении денежных средств, 0710005), '
+                 'notes (ПОЯСНЕНИЯ к балансу и отчёту: текстовые страницы с расшифровками — состав основных средств, '
+                 'запасов, дебиторской и кредиторской задолженности, связанные стороны, события после отчётной даты), '
+                 'audit (АУДИТОРСКОЕ ЗАКЛЮЧЕНИЕ: текст с мнением аудитора, подписями, названием аудиторской организации; '
+                 'в полугодовой отчётности его обычно нет, в годовой оно идёт ДО баланса, то есть баланс может начинаться не с 1-й страницы), '
+                 'other (титульный лист, прочее). '
                  'Продолжение формы (в шапке "Форма 07100XX с. N") = та же форма. '
+                 'ВАЖНО: страницы пояснений и аудиторского заключения НЕ относи к формам, даже если на них '
+                 'встречаются названия и числа строк баланса — это отдельные текстовые документы, а не форма 07100XX. '
                  'Ответь ОДНОЙ строкой строго в формате {"1":"other","2":"balance",...} без пояснений.')
+
+# The detection prompt is part of the artifact it produces: rewording it changes the labels,
+# but the cache key did not include the prompt, so a rewritten prompt silently kept returning
+# the OLD labels for every document already detected — the fix would look applied and do
+# nothing. Bump this whenever DETECT_PROMPT changes, and expect one paid re-detection pass
+# (detection is the cheap stage: 0.22 ₽ for the 41-document pilot).
+DETECT_PROMPT_VERSION = 'v2'
+FORM_LABELS = ('balance', 'income_statement', 'cash_flow')
+PAGE_LABELS = FORM_LABELS + ('notes', 'audit', 'other')
 
 def salvage_pages_map(txt, npages):
     """recover page->form mapping from truncated/broken JSON output"""
     out = []
     for m in re.finditer(r'"(\d{1,3})"\s*:\s*"(\w+)"', txt):
         p, f = int(m.group(1)), m.group(2)
-        if 1 <= p <= npages and f in ('balance', 'income_statement', 'cash_flow', 'other'):
+        if 1 <= p <= npages and f in PAGE_LABELS:
             out.append({'page': p, 'form': f})
     return out
 
@@ -983,81 +1000,114 @@ def cached_llm(tag, fn):
     json.dump(obj, open(path, 'w', encoding='utf-8'), ensure_ascii=False)
     return obj
 
+def detect_pages(doc, cand, npages, warnings):
+    """Stage 1: label every candidate page with a category, cheap model at 120 dpi.
+
+    Extracted from scan_pipeline so that the paid detection pass can be run, compared and
+    re-run on its own — detection is the cheap stage (0.22 ₽ for the whole 41-document
+    pilot), and the only way to measure a change to DETECT_PROMPT is to call exactly this
+    function and diff the labels it returns.
+    """
+    msgs = [{'role': 'user', 'content': [{'type': 'text', 'text': DETECT_PROMPT}]}]
+    for i in cand:
+        msgs[0]['content'].extend(img_parts(render_png(doc[i - 1], 120), f'СТРАНИЦА {i}'))
+    print(f'  detection: {len(cand)} candidate pages sent as images')
+    if len(cand) <= 10:
+        txt, _ = chat(msgs, M_DETECT, temperature=0, max_tokens=4000)
+        try:
+            pm = extract_json(txt).get('pages', [])
+        except ValueError:
+            pm = salvage_pages_map(txt, npages)
+        return pm or salvage_pages_map(txt, npages)
+    # chunked detection for big candidate sets: classify each page group separately;
+    # polza rejects requests whose images exceed ~30MB total, so chunks are small and a
+    # failed chunk is retried in halves
+    pages_map = []
+    CH = 8
+    def _detect_group(group):
+        cm = [{'role': 'user', 'content': [
+            {'type': 'text', 'text': DETECT_PROMPT + f' (Страницы {group[0]}-{group[-1]} из {npages})'}]}]
+        for j in group:
+            cm[0]['content'].extend(img_parts(render_png(doc[j - 1], 120), f'СТРАНИЦА {j}'))
+        try:
+            # 4000, not 1200: the group path used to ask for less than the single-message
+            # path above, and a reasoning model spends part of the limit on its own
+            # reasoning before emitting any JSON. At 1200 the limit ran out before the
+            # answer started: 16% of calls came back as HTTP 502 «весь заданный вами
+            # max_tokens ушёл на внутренние рассуждения» (25 calls, 4 failures).
+            # At 4000 the same 25 calls all returned text. 4000 is already the value
+            # chosen for the single-message path, so this makes the two agree.
+            txt, _ = chat(cm, M_DETECT, temperature=0, max_tokens=4000)
+        except Exception as e:
+            if len(group) > 2:
+                mid = len(group) // 2
+                _detect_group(group[:mid])
+                _detect_group(group[mid:])
+            else:
+                warnings.append(f'detection: pages {group} skipped: {e}')
+            return
+        pm = salvage_pages_map(txt, npages)
+        if not pm:
+            try:
+                pm = extract_json(txt).get('pages', [])
+            except ValueError:
+                pm = []
+        pages_map.extend(pm)
+    for lo in range(0, len(cand), CH):
+        _detect_group(cand[lo:lo + CH])
+    return pages_map
+
 def scan_pipeline(doc, name, only_pages=None):
     warnings, transcripts = [], {}
     npages = len(doc)
     cand = only_pages or list(range(1, npages + 1))
     # stage 1: detection, cheap model, 120 dpi — all pages as content parts of ONE message
-    msgs = [{'role': 'user', 'content': [{'type': 'text', 'text': DETECT_PROMPT}]}]
-    for i in cand:
-        msgs[0]['content'].extend(img_parts(render_png(doc[i - 1], 120), f'СТРАНИЦА {i}'))
-    print(f'  detection: {len(cand)} candidate pages sent as images')
-    def _detect():
-        if len(cand) <= 10:
-            txt, _ = chat(msgs, M_DETECT, temperature=0, max_tokens=4000)
-            try:
-                pm = extract_json(txt).get('pages', [])
-            except ValueError:
-                pm = salvage_pages_map(txt, npages)
-            return pm or salvage_pages_map(txt, npages)
-        # chunked detection for big candidate sets: classify each page group
-        # separately; polza rejects requests whose images exceed ~30MB total,
-        # so chunks are small and a failed chunk is retried in halves
-        pages_map = []
-        CH = 8
-        def _detect_group(group):
-            cm = [{'role': 'user', 'content': [
-                {'type': 'text', 'text': DETECT_PROMPT + f' (Страницы {group[0]}-{group[-1]} из {npages})'}]}]
-            for j in group:
-                cm[0]['content'].extend(img_parts(render_png(doc[j - 1], 120), f'СТРАНИЦА {j}'))
-            try:
-                # 4000, not 1200: the group path used to ask for less than the single-message
-                # path above, and a reasoning model spends part of the limit on its own
-                # reasoning before emitting any JSON. At 1200 the limit ran out before the
-                # answer started: 16% of calls came back as HTTP 502 «весь заданный вами
-                # max_tokens ушёл на внутренние рассуждения» (25 calls, 4 failures).
-                # At 4000 the same 25 calls all returned text. 4000 is already the value
-                # chosen for the single-message path, so this makes the two agree.
-                txt, _ = chat(cm, M_DETECT, temperature=0, max_tokens=4000)
-            except Exception as e:
-                if len(group) > 2:
-                    mid = len(group) // 2
-                    _detect_group(group[:mid])
-                    _detect_group(group[mid:])
-                else:
-                    warnings.append(f'detection: pages {group} skipped: {e}')
-                return
-            pm = salvage_pages_map(txt, npages)
-            if not pm:
-                try:
-                    pm = extract_json(txt).get('pages', [])
-                except ValueError:
-                    pm = []
-            pages_map.extend(pm)
-        for lo in range(0, len(cand), CH):
-            _detect_group(cand[lo:lo + CH])
-        return pages_map
     try:
-        pages_map = cached_llm(f'{os.path.splitext(name)[0]}_detect', _detect)
+        pages_map = cached_llm(f'{os.path.splitext(name)[0]}_detect_{DETECT_PROMPT_VERSION}',
+                               lambda: detect_pages(doc, cand, npages, warnings))
     except Exception as e:
         warnings.append(f'detection failed: {e}')
         pages_map = []
     form_pages = {}
     for p in pages_map:
         f = p.get('form')
-        if f in ('balance', 'income_statement', 'cash_flow'):
+        if f in FORM_LABELS:
             form_pages.setdefault(f, []).append(p.get('page'))
+    # Notes and the auditor's report are separate documents, not forms: they used to be
+    # labelled with a form, so their pages entered transcript_pages and escalation then
+    # re-read them at 300 dpi as if they were part of the balance. Measured: 13 documents
+    # contaminated, 18 notes pages, and for КЛВЗ Кристалл_6мес_2025 four of the eight pages
+    # escalation read were notes (22, 23, 25, 26) while the balance sat on pages 1-2.
+    # They are dropped from the run now, but the page numbers are kept in the artifact as a
+    # hook: the auditor's report is wanted later, and it precedes the balance in annual
+    # reporting, so "page 1 is the balance" must never be assumed.
+    doc_result['_extra_pages'] = {
+        'notes': sorted({p.get('page') for p in pages_map if p.get('form') == 'notes'}),
+        'audit': sorted({p.get('page') for p in pages_map if p.get('form') == 'audit'}),
+    }
     print('  detected form pages:', form_pages)
+    if doc_result['_extra_pages']['notes'] or doc_result['_extra_pages']['audit']:
+        print('  detected non-form text pages: notes=%s audit=%s'
+              % (doc_result['_extra_pages']['notes'], doc_result['_extra_pages']['audit']))
     want = wanted_forms(name)
     if want:
         form_pages = {k: v for k, v in form_pages.items() if k in want}
         print(f'  forms wanted: {sorted(want)} -> kept: {sorted(form_pages)}')
     # stage 2: transcription, main model, 200 dpi — parallel workers, disk-cached per page
+    # The title page is NOT a form page — detection now labels it `other` — but it carries
+    # inn/okpo/unit, which were previously picked up only because page 1 happened to be
+    # labelled with a form and so became `balance_p1`. Without this, company_from_title
+    # would silently lose them (measured on the new labels: Артген (ИСКЧ)_6мес_2025 lost
+    # ОКПО 71328785 and the unit «тыс. руб»). Transcribe page 1 on its own under a stable
+    # key; when page 1 is also a form page this is a cache hit and costs nothing.
+    title_pages = [1] if npages >= 1 else []
     from concurrent.futures import ThreadPoolExecutor
-    todo = [p for plist in form_pages.values() for p in plist
-            if isinstance(p, int) and 1 <= p <= npages]
+    todo = sorted({p for plist in form_pages.values() for p in plist
+                   if isinstance(p, int) and 1 <= p <= npages} | set(title_pages))
     with ThreadPoolExecutor(max_workers=4) as ex:
         list(ex.map(lambda p: transcribe_cached(doc, p, name, dpi=200, model=M_MAIN), todo))
+    for p in title_pages:
+        transcripts[f'title_p{p}'] = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN)
     for key, plist in form_pages.items():
         parts = []
         for p in plist:
@@ -1100,8 +1150,9 @@ def collect_scan_results(doc, name, transcripts, result):
     # Происхождение: через месяц нужно понимать, каким поставщиком сделана
     # транскрипция — цены и качество у площадок разные, а имя модели совпадает.
     result['source']['provider'] = ACTIVE_PROFILE.name
-    # page 1 of a scan holds the title page: inn/okpo/unit (name from filename)
-    rq = company_from_title(transcripts.get('balance_p1') or '')
+    # page 1 of a scan holds the title page: inn/okpo/unit (name from filename).
+    # `title_p1` is the fallback for when detection labelled page 1 as a non-form page.
+    rq = company_from_title(transcripts.get('balance_p1') or transcripts.get('title_p1') or '')
     result['company'].update({k: rq[k] for k in ('inn', 'okpo') if rq.get(k)})
     if rq.get('unit'): result['unit']['label'] = rq['unit']
     for key in ('balance', 'income_statement', 'cash_flow'):
@@ -1112,6 +1163,17 @@ def collect_scan_results(doc, name, transcripts, result):
                        'columns': d['llm'].get('columns', []),
                        'items': items, 'transcript_pages': d['transcript_pages']}
         result['checks'] += [dict(form=key, **c) for c in run_checks(key, items)]
+    # Hook for later: pages detection labelled as notes / auditor's report. They are not
+    # read now (they are text documents, not forms, and were previously polluting both the
+    # forms and escalation), but the page numbers are recorded so the next stage can pick
+    # up the auditor's report — which is the first thing wanted — without re-detecting.
+    non_form = doc_result.get('_extra_pages') or {}
+    non_form = {k: v for k, v in non_form.items() if v}
+    if non_form:
+        result['source']['non_form_pages'] = non_form
+        result['warnings'].append(
+            'страницы, не являющиеся формами, пропущены (задел на будущее): '
+            + ', '.join(f'{k} — стр. {v}' for k, v in sorted(non_form.items())))
     # drop 'empty' forms: structuring returned nothing usable (wrong-page garbage)
     for key in ('balance', 'income_statement', 'cash_flow'):
         d = result.get(key)

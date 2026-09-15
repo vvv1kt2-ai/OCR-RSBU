@@ -1,0 +1,910 @@
+[
+ {
+  "stem": "Артген (ИСКЧ)_6мес_2025",
+  "npages": 44,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    19,
+    20,
+    21,
+    22,
+    25
+   ],
+   "income_statement": [
+    29
+   ],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   26
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Артген (ИСКЧ)_6мес_2026",
+  "npages": 47,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    21,
+    22,
+    23,
+    24,
+    25
+   ],
+   "income_statement": [
+    26,
+    27
+   ],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   41,
+   42,
+   43,
+   44,
+   45,
+   46
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Байсэл_6мес_2025",
+  "npages": 38,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    19,
+    20,
+    34
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   34,
+   35,
+   36,
+   37,
+   38
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Байсэл_6мес_2026",
+  "npages": 26,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    22,
+    23,
+    24
+   ],
+   "income_statement": [],
+   "cash_flow": [
+    25
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   23,
+   24,
+   25,
+   26
+  ],
+  "warns": []
+ },
+ {
+  "stem": "ИПС_6мес_2025",
+  "npages": 44,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    2,
+    4,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    34,
+    39,
+    40,
+    41,
+    43
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   2,
+   4,
+   16,
+   17,
+   18,
+   19,
+   20,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   34,
+   36,
+   37,
+   38,
+   39
+  ],
+  "warns": []
+ },
+ {
+  "stem": "ИПС_6мес_2026",
+  "npages": 65,
+  "lost": [],
+  "moved_out": {
+   "balance": [],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   36,
+   38,
+   41,
+   42,
+   43,
+   44,
+   45,
+   46,
+   51,
+   52,
+   53,
+   54,
+   55,
+   56,
+   57,
+   58,
+   59,
+   60,
+   61,
+   62,
+   63,
+   64,
+   65
+  ],
+  "warns": []
+ },
+ {
+  "stem": "КИФА_6мес_2025",
+  "npages": 27,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    2,
+    3
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   3,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18
+  ],
+  "warns": []
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "npages": 33,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    22,
+    23,
+    24,
+    26,
+    27,
+    28,
+    29
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   27,
+   28,
+   29,
+   32,
+   33
+  ],
+  "warns": []
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "npages": 29,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    21,
+    22,
+    23,
+    24,
+    25,
+    26
+   ],
+   "income_statement": [
+    27
+   ],
+   "cash_flow": [
+    8,
+    9
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   8,
+   9,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Корпсан_6мес_2026",
+  "npages": 12,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   11,
+   12
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "npages": 38,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    19
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   36,
+   37,
+   38
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Моторные технологии_6мес_2026",
+  "npages": 33,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    15
+   ],
+   "income_statement": [],
+   "cash_flow": [
+    17,
+    18,
+    19,
+    20
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [],
+  "warns": []
+ },
+ {
+  "stem": "Нижегородец Восток_6мес_2025",
+  "npages": 4,
+  "lost": [],
+  "moved_out": {
+   "balance": [],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [],
+  "warns": []
+ },
+ {
+  "stem": "Нижегородец Восток_6мес_2026",
+  "npages": 8,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [],
+  "warns": []
+ },
+ {
+  "stem": "НовосибирскАвтодор_6мес_2025",
+  "npages": 49,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    49
+   ],
+   "income_statement": [
+    4,
+    38
+   ],
+   "cash_flow": [
+    6,
+    7
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [],
+  "warns": []
+ },
+ {
+  "stem": "НовосибирскАвтодор_6мес_2026",
+  "npages": 51,
+  "lost": [],
+  "moved_out": {
+   "balance": [],
+   "income_statement": [
+    25,
+    26,
+    40,
+    46
+   ],
+   "cash_flow": [
+    33,
+    43,
+    44,
+    45
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   36,
+   37,
+   38,
+   39,
+   40
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Омега_6мес_2025",
+  "npages": 31,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    17,
+    18,
+    19,
+    20
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Омега_6мес_2026",
+  "npages": 40,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    19,
+    20
+   ],
+   "income_statement": [],
+   "cash_flow": [
+    27
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [],
+  "warns": []
+ },
+ {
+  "stem": "Органик парк_6мес_2025",
+  "npages": 18,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   15,
+   16
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Органик парк_6мес_2026",
+  "npages": 14,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [],
+  "warns": []
+ },
+ {
+  "stem": "Простая еда_6мес_2025",
+  "npages": 32,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   6,
+   7,
+   8,
+   32
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Простая еда_6мес_2026",
+  "npages": 27,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   13,
+   14,
+   15,
+   16
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Сибсульфур_6мес_2026",
+  "npages": 70,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    21,
+    22,
+    23,
+    28,
+    30,
+    31,
+    44,
+    65,
+    66,
+    67,
+    68,
+    69
+   ],
+   "income_statement": [
+    70
+   ],
+   "cash_flow": [
+    24,
+    32,
+    56
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   5,
+   6,
+   7,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   37,
+   44,
+   45,
+   46,
+   47,
+   48,
+   59,
+   60,
+   61,
+   65,
+   66,
+   67,
+   68,
+   69,
+   70
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Смартфакт_6мес_2025",
+  "npages": 20,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    16
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   11,
+   12,
+   13,
+   14,
+   15,
+   16
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Смартфакт_6мес_2026",
+  "npages": 18,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    14,
+    15,
+    16
+   ],
+   "income_statement": [],
+   "cash_flow": [
+    9,
+    10
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   9,
+   10,
+   12,
+   13,
+   14,
+   15,
+   16
+  ],
+  "warns": []
+ },
+ {
+  "stem": "ТГК-14_6мес_2025",
+  "npages": 18,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   7,
+   8
+  ],
+  "warns": []
+ },
+ {
+  "stem": "ТГК-14_6мес_2026",
+  "npages": 18,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [],
+   "cash_flow": [
+    12
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   7,
+   8
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Финэква_6мес_2026",
+  "npages": 25,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [],
+   "cash_flow": [
+    8,
+    16
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   17,
+   18,
+   19
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Эфферон_6мес_2025",
+  "npages": 37,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1
+   ],
+   "income_statement": [
+    4,
+    5
+   ],
+   "cash_flow": []
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   15,
+   16,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   34,
+   35,
+   36,
+   37
+  ],
+  "warns": []
+ },
+ {
+  "stem": "Эфферон_6мес_2026",
+  "npages": 37,
+  "lost": [],
+  "moved_out": {
+   "balance": [
+    1,
+    26
+   ],
+   "income_statement": [],
+   "cash_flow": [
+    27
+   ]
+  },
+  "non_form_old": [],
+  "non_form_new": [
+   15,
+   16,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   34,
+   35,
+   36,
+   37
+  ],
+  "warns": []
+ }
+]
