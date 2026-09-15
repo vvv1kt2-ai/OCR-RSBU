@@ -3,7 +3,7 @@ r"""Pilot pipeline: extract RSBU forms (balance, income statement, cash flow) fr
 Two branches: text-layer -> rule parser; scans -> vision-LLM via polza.ai.
 Router/escalation logic per D:\models\agent_task_extraction.md section 4.0.
 """
-import sys, os, re, json, base64, time, hashlib, urllib.request, urllib.error
+import sys, os, re, json, copy, base64, time, hashlib, urllib.request, urllib.error
 
 sys.path.insert(0, 'D:/models/pylibs')
 import pymupdf
@@ -54,11 +54,35 @@ def load_key():
 
 KEY = load_key()
 
+# A reasoning model spends part of max_tokens on its own reasoning before it emits any
+# answer, and the provider bills that reasoning as output. When the limit is too small the
+# limit runs out before the answer starts and the call comes back as an error with no text:
+# «Поставщик вернул ответ без текста: весь заданный вами max_tokens ушёл на внутренние
+# рассуждения модели». Retrying the same call with the same limit cannot help, so `chat()`
+# recognises this one condition and retries with twice the room instead.
+REASONING_STARVED_MARKERS = ('рассужд', 'internal reasoning', 'reasoning tokens')
+REASONING_HEADROOM_CAP = 32000   # matches the largest limit already used in this file
+
+
+def _reasoning_starved(raw):
+    """True when the provider says the whole max_tokens went into reasoning."""
+    if not raw:
+        return False
+    try:
+        t = raw.decode('utf-8', 'replace') if isinstance(raw, bytes) else str(raw)
+    except Exception:
+        return False
+    t = t.lower()
+    return 'max_tokens' in t and any(m in t for m in REASONING_STARVED_MARKERS)
+
+
 def chat(messages, model, temperature=0.1, max_tokens=8192, retries=2, timeout=240):
-    url, headers, body = _providers.build_request(
-        ACTIVE_PROFILE, model, messages, KEY, temperature, max_tokens)
     last = None
+    limit = max_tokens
     for attempt in range(retries + 1):
+        # rebuilt each attempt: a reasoning-starved retry asks for more room
+        url, headers, body = _providers.build_request(
+            ACTIVE_PROFILE, model, messages, KEY, temperature, limit)
         try:
             req = urllib.request.Request(url, data=body, method='POST', headers=headers)
             t0 = time.time()
@@ -74,10 +98,24 @@ def chat(messages, model, temperature=0.1, max_tokens=8192, retries=2, timeout=2
             fin = data['choices'][0].get('finish_reason')
             print(f'  [llm] {model} pt={pt} ct={ct} cost={cost:.2f}RUB ({cost_src}) '
                   f'{time.time()-t0:.0f}s finish={fin}')
+            if not txt.strip() and fin == 'length' and limit < REASONING_HEADROOM_CAP:
+                # same condition, but reported as a truncated empty answer rather than
+                # an error: the limit was spent before any text was produced
+                last = f'empty answer with finish=length at max_tokens={limit}'
+                print(f'  [llm] attempt {attempt+1} gave no text (finish=length) '
+                      f'-> retrying with max_tokens={min(limit * 2, REASONING_HEADROOM_CAP)}')
+                limit = min(limit * 2, REASONING_HEADROOM_CAP)
+                time.sleep(2)
+                continue
             return txt, fin
         except urllib.error.HTTPError as e:
-            last = f'HTTP {e.code}: {e.read()[:200]}'
+            raw = e.read()
+            last = f'HTTP {e.code}: {raw[:400]}'
             print(f'  [llm] attempt {attempt+1} failed: {last}')
+            if _reasoning_starved(raw) and limit < REASONING_HEADROOM_CAP:
+                limit = min(limit * 2, REASONING_HEADROOM_CAP)
+                print(f'  [llm] reasoning ate the whole limit -> retrying with '
+                      f'max_tokens={limit}')
         except Exception as e:
             last = str(e); print(f'  [llm] attempt {attempt+1} failed: {last}')
         time.sleep([2, 8, 30][min(attempt, 2)])
@@ -388,8 +426,13 @@ def run_checks(form_key, items):
     if form_key == 'balance':
         rules = [
             ('1600 == 1700', lambda c: eq(S('1600', c), S('1700', c)) if has(S('1600', c)) else None),
-            ('1100 == 1110+1150+1160+1170+1180+1190', lambda c: eq(S('1100', c), nz(*[S(k, c) for k in ('1110','1150','1160','1170','1180','1190')])) if has(S('1100', c)) else None),
-            ('1200 == 1210+1220+1230+1240+1250+1260', lambda c: eq(S('1200', c), nz(*[S(k, c) for k in ('1210','1220','1230','1240','1250','1260')])) if has(S('1200', c)) else None),
+            # Sub-lines 1120/1130/1140 belong to section I: without them the sum is short
+            # whenever a filer uses them. They are empty in the current corpus, so the
+            # omission is latent here — but a missing code turns into a FALSE failure,
+            # and a false failure buys an escalation (pipeline.py:1050). Same for 1215
+            # below, which is why it is listed: it cost 16 escalation pages on КЛВЗ.
+            ('1100 == 1110+1120+1130+1140+1150+1160+1170+1180+1190', lambda c: eq(S('1100', c), nz(*[S(k, c) for k in ('1110','1120','1130','1140','1150','1160','1170','1180','1190')])) if has(S('1100', c)) else None),
+            ('1200 == 1210+1215+1220+1230+1240+1250+1260', lambda c: eq(S('1200', c), nz(*[S(k, c) for k in ('1210','1215','1220','1230','1240','1250','1260')])) if has(S('1200', c)) else None),
             ('1300+1400+1500 == 1700', lambda c: eq(nz(S('1300', c), S('1400', c), S('1500', c)), S('1700', c)) if has(S('1700', c)) else None),
         ]
     elif form_key == 'income_statement':
@@ -694,7 +737,40 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
         for rec in [it] + (it.get('children') or []):
             if rec.get('name') and rec.get('code') in want and rec.get('values'):
                 nm.setdefault(_nk(rec['name']), rec.get('values'))
+    # --- quality gates: escalation may not make the form worse -------------------------
+    # Values used to be overwritten unconditionally: any non-empty row the second model
+    # produced won, and nothing checked that the result was BETTER than what it replaced.
+    # The LLM fallback in the text branch has had such a gate for a long time (the
+    # 'llm fallback passed fewer checks' branch below); escalation had none.
+    #
+    # What that cost, measured: of the 3 rows escalation ever changed, one was HARMFUL.
+    # ТГК-14_6мес_2025, code 1250, column 0: the artifact held 11081647 and escalation
+    # replaced it with 11061647 — a 20000 difference. Rule 1200 closes EXACTLY on
+    # 11081647 (sum of 1210+1215+1220+1230+1240+1250+1260 = 16911114 = 1200, gap 0) and
+    # is off by exactly 20000 on 11061647, so the replaced value is provably the wrong
+    # one. Note where the wrong value came from: the SAME model, at the same 300 dpi,
+    # reading the same page under the other provider, produced the other digit. No
+    # provider is uniformly better here — on the one page of this corpus with a text
+    # layer to check against, Polza fabricated numbers and PlusVibe did not, and on this
+    # page it is the other way round.
+    #
+    # Gate 1 — support: the new value must be findable in the transcript that was sent.
+    #   Escalation exists to READ the page better, not to compute or invent, so a value
+    #   that cannot be pointed to is not applied. Caveat, measured: this catches the
+    #   harmful change only when the sent text did not contain it (with Polza active it
+    #   did not, with PlusVibe it did), so gate 1 alone is not sufficient.
+    # Gate 2 — no regression: the merge is discarded entirely if it loses the closing
+    #   total or leaves fewer passing checks than before. This is the gate that catches
+    #   the case above — but only because rule 1200 now includes 1215. While 1215 was
+    #   missing from the sum, the CORRECT value failed the rule too, so the damage was
+    #   invisible to any check-count comparison. Fixing the rule is what restored the
+    #   signal that makes this gate work.
+    sent_nums = set(re.findall(r'\d+', re.sub(r'(?<=\d)[\s\u00a0](?=\d)', '', transcript)))
+    before = copy.deepcopy(res['items'])
+    was_ok = n_checks_ok(form_key, before)
+    was_complete = form_is_complete(form_key, before)
     changed = 0; confirmed = 0
+    unsupported = []
     for it in res['items']:
         code = it.get('code')
         targets = [it] + it.get('children', [])
@@ -706,6 +782,11 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
             if nv is not None and any(v is not None for v in nv):
                 nv = list(nv)
                 if tgt.get('values') != nv:
+                    missing = [v for v in nv if v is not None
+                               and re.sub(r'\D', '', str(v)) not in sent_nums]
+                    if missing:
+                        unsupported.append((ccode, missing))
+                        continue
                     tgt['values_ocr1'] = tgt.get('values')
                     tgt['values'] = nv
                     tgt['corrected_by'] = M_ESC
@@ -713,7 +794,31 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
                 else:
                     tgt['confirmed_by'] = M_ESC
                     confirmed += 1
-    print(f'  escalate: corrected {changed} rows, confirmed {confirmed}')
+    print(f'  escalate: corrected {changed} rows, confirmed {confirmed}'
+          + (f', NOT supported by transcript: {len(unsupported)}' if unsupported else ''))
+    if unsupported:
+        # the value stays as it was: an unverifiable change is not an improvement
+        shown = '; '.join(f'{c}={" / ".join(str(v) for v in vs)}' for c, vs in unsupported[:4])
+        warnings.append(
+            f'{form_key}: эскалация предложила значения, которых нет в её же тексте '
+            f'({shown}) — не применены, оставлены прежние значения')
+    if changed:
+        now_ok = n_checks_ok(form_key, res['items'])
+        now_complete = form_is_complete(form_key, res['items'])
+        if was_complete and not now_complete:
+            res['items'] = before
+            warnings.append(
+                f'{form_key}: эскалация отклонена — потеряла {TERMINAL_CODE[form_key]} '
+                f'({was_ok} проверок было, {now_ok} стало); значения возвращены')
+            print(f'  escalate: REFUSED — lost {TERMINAL_CODE[form_key]}')
+            changed = 0
+        elif now_ok < was_ok:
+            res['items'] = before
+            warnings.append(
+                f'{form_key}: эскалация отклонена — проверок стало меньше '
+                f'({was_ok} -> {now_ok}); значения возвращены к состоянию до эскалации')
+            print(f'  escalate: REFUSED — checks {was_ok} -> {now_ok}')
+            changed = 0
     if changed:
         res['checks'] = [dict(form=form_key, **c) for c in run_checks(form_key, res['items'])]
         # replace this form's checks in the result
@@ -906,7 +1011,14 @@ def scan_pipeline(doc, name, only_pages=None):
             for j in group:
                 cm[0]['content'].extend(img_parts(render_png(doc[j - 1], 120), f'СТРАНИЦА {j}'))
             try:
-                txt, _ = chat(cm, M_DETECT, temperature=0, max_tokens=1200)
+                # 4000, not 1200: the group path used to ask for less than the single-message
+                # path above, and a reasoning model spends part of the limit on its own
+                # reasoning before emitting any JSON. At 1200 the limit ran out before the
+                # answer started: 16% of calls came back as HTTP 502 «весь заданный вами
+                # max_tokens ушёл на внутренние рассуждения» (25 calls, 4 failures).
+                # At 4000 the same 25 calls all returned text. 4000 is already the value
+                # chosen for the single-message path, so this makes the two agree.
+                txt, _ = chat(cm, M_DETECT, temperature=0, max_tokens=4000)
             except Exception as e:
                 if len(group) > 2:
                     mid = len(group) // 2
