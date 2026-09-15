@@ -32,3 +32,9 @@ provod_models.json
 _migrate_cache_keys.json
 _fix41_audit.json
 adc6e07d_polza_export_*.csv
+
+# данные и диагностические рендеры (не код): остаются на диске, но не в истории
+plusvibe-usage.ndjson
+_dpi_cmp/
+_vision_*.png
+_vd*.png
