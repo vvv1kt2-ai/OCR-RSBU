@@ -1,69 +1,73 @@
 # -*- coding: utf-8 -*-
-r"""Разбор «выдуманных» чисел на эскалации: выдумали оба или врёт текстовый слой.
+r"""Откуда взялось значение, которого нет в транскрипте эскалации?
 
-Если два разных поставщика выдают ОДНИ И ТЕ ЖЕ числа, которых нет в слое, то дело не в
-моделях: это слой неполон. Проверяется сравнением множеств и поиском числа в самом PDF
-(по всем страницам, а не только по той, что взяли).
+ТГК-14_6мес_2025: эскалация заменила 1250 кол.0 с 11081647 на 11061647, но в транскрипте
+стр.3 (и 200, и 300 dpi) стоит 11081647, а 11061647 не встречается вовсе. Проверяю ВСЕ
+страницы документа во всех разрешениях и текстовый слой самого PDF.
 """
-import io, os, json, sys
+import io, os, re, sys
 
 sys.path.insert(0, r'D:\models')
-import _pv_quality as Q
-import fitz
+import pipeline  # добавляет pylibs в sys.path
+import pymupdf
 
-DL = r'D:\data-scraping\downloads'
-rows = json.load(io.open(r'D:\models\_esc_quality.json', encoding='utf-8'))
+PAGES = r'D:\models\extracted\pages'
+SRC = r'D:\data-scraping\downloads'
+CACHE = re.compile(r'^(?P<stem>.+)_p(?P<p>\d+)_(?P<dpi>\d+)_(?P<rest>.+)\.md$')
 
-print('=== совпадают ли множества «выдуманных» чисел ===')
-same_all = 0
-for r in rows:
-    a, b = set(r['pz_bad']), set(r['pv_bad'])
-    eq = a == b
-    same_all += 1 if eq else 0
-    print('  %-30s стр.%-3d Polza %2d, PlusVibe %2d, множества %s'
-          % (r['stem'][:30], r['page'], len(a), len(b),
-             'СОВПАДАЮТ' if eq else 'разные'))
-    if not eq:
-        print('      только у Polza:    %s' % sorted(a - b)[:8])
-        print('      только у PlusVibe: %s' % sorted(b - a)[:8])
-print('  совпало множеств: %d из %d' % (same_all, len(rows)))
+STEM = 'ТГК-14_6мес_2025'
+OLD, NEW = '11081647', '11061647'
+
+
+def norm(t):
+    return re.sub(r'(?<=\d)[\s\u00a0](?=\d)', '', t or '')
+
+
+print('=== 1. Все транскрипты документа %s ===' % STEM)
+rows = []
+for f in os.listdir(PAGES):
+    m = CACHE.match(f)
+    if m and m.group('stem') == STEM:
+        t = norm(io.open(os.path.join(PAGES, f), encoding='utf-8').read())
+        rows.append((int(m.group('p')), int(m.group('dpi')),
+                     OLD in t, NEW in t, len(t)))
+for p, dpi, has_old, has_new, n in sorted(rows):
+    print('  стр.%-3d %3d dpi, %5d знаков: ошибочное %s | верное %s'
+          % (p, dpi, n, 'ЕСТЬ' if has_old else '-', 'ЕСТЬ' if has_new else '-'))
+if not any(r[3] for r in rows):
+    print('  ВЫВОД: значения 11061647 нет НИ В ОДНОМ транскрипте документа')
 
 print()
-print('=== есть ли эти числа где-нибудь в PDF ===')
-for r in rows:
-    a = set(r['pz_bad'])
-    if not a:
-        continue
-    pdf = os.path.join(DL, r['stem'] + '.pdf')
-    if not os.path.exists(pdf):
-        continue
-    d = fitz.open(pdf)
-    try:
-        # искать по всем страницам и по обоим написаниям: с пробелами и без
-        found = {}
-        for n in sorted(a):
-            hits = []
-            for i in range(d.page_count):
-                t = d[i].get_text()
-                if n in t or Q.norm_digits(t).count(n):
-                    hits.append(i + 1)
-                    break
-            if not hits:
-                # попробуем с пробелом-разделителем тысяч
-                if len(n) >= 5:
-                    spaced = n[:-3] + ' ' + n[-3:]
-                    for i in range(d.page_count):
-                        if spaced in d[i].get_text():
-                            hits.append(i + 1)
-                            break
-            found[n] = hits
-        n_found = sum(1 for v in found.values() if v)
-        print('  %-30s стр.%-3d «выдуманных» %2d, найдено в PDF: %2d'
-              % (r['stem'][:30], r['page'], len(a), n_found))
-        for n, v in sorted(found.items()):
-            if not v:
-                print('      нет нигде: %s' % n)
-            elif r['page'] not in v:
-                print('      есть, но на другой странице (%s): %s' % (v[:4], n))
-    finally:
-        d.close()
+print('=== 2. Текстовый слой самого PDF (бесплатно, без OCR) ===')
+for root, _, files in os.walk(SRC):
+    for fn in files:
+        if fn.startswith('ТГК-14_6мес_2025'):
+            path = os.path.join(root, fn)
+            doc = pymupdf.open(path)
+            print('  файл: %s, страниц %d' % (fn, doc.page_count))
+            for i in range(doc.page_count):
+                t = norm(doc[i].get_text())
+                if OLD in t or NEW in t:
+                    print('    стр.%-3d текстовый слой: ошибочное %s | верное %s'
+                          % (i + 1, 'ЕСТЬ' if OLD in t else '-',
+                             'ЕСТЬ' if NEW in t else '-'))
+                    j = t.find(OLD) if OLD in t else t.find(NEW)
+                    if j >= 0:
+                        print('        контекст: ...%s...'
+                              % t[max(0, j - 70):j + 25].replace('\n', ' '))
+            doc.close()
+
+print()
+print('=== 3. Что говорит артефакт ===')
+import json
+EX = r'D:\models\extracted'
+doc = json.load(io.open(os.path.join(EX, STEM + '.json'), encoding='utf-8'))
+for it in ((doc.get('balance') or {}).get('items') or []):
+    if str(it.get('code')) == '1250':
+        print('  код 1250: values=%s' % it.get('values'))
+        print('            values_ocr1=%s' % it.get('values_ocr1'))
+        print('            corrected_by=%s' % it.get('corrected_by'))
+for w in (doc.get('warnings') or []):
+    if 'balance' in w:
+        print('  warning: %s' % w[:160])
+print('  источник: текстовый слой=%s' % (doc.get('source') or {}).get('text_layer'))
