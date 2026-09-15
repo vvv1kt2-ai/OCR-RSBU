@@ -980,6 +980,51 @@ def page_cache_path(doc, name, p, dpi, model, profile=None):
     return os.path.join(PAGESDIR,
                         f'{stem}_p{p}_{dpi}_{model_tag(model)}{prov}_{doc_fingerprint(doc)}.md')
 
+def cached_transcript_path(doc, name, p):
+    """Path of an already-paid transcript of this page, or None if there is none.
+
+    Non-form pages (notes, the auditor's report) are NOT read as part of a form — reading
+    them as forms is what put 171 codeless pages into the balances. But if such a page was
+    read for some other reason, its text is kept rather than dropped: it has already been
+    paid for, and a page number alone cannot say what the auditor's report says. Nothing in
+    this function calls a model — the whole point is to keep text that exists, never to buy
+    more. Pages that were never read simply return None.
+
+    Any dpi and any model will do, 200 dpi preferred: the text is the same document either
+    way, and refusing a 300 dpi transcript because 200 dpi is missing would throw away paid
+    text to satisfy a preference.
+    """
+    stem = os.path.splitext(name)[0]
+    if not stem or stem != _doc_stem(doc):
+        raise ValueError(
+            f'cache key would not identify the document: name={name!r} '
+            f'but the open PDF is {getattr(doc, "name", None)!r}')
+    tail = f'{_provider_infix(ACTIVE_PROFILE)}_{doc_fingerprint(doc)}.md'
+    hits = [f for f in os.listdir(PAGESDIR)
+            if f.startswith(f'{stem}_p{p}_') and f.endswith(tail)]
+    if not hits:
+        return None
+    hits.sort(key=lambda f: ('_200_' not in f, f))
+    return os.path.join(PAGESDIR, hits[0])
+
+def nonform_pages_to_keep(doc_result, npages, path_of):
+    """{page: path} for non-form pages whose text we already have.
+
+    Split out from scan_pipeline so the decision can be tested without paying for a call:
+    the interesting part is which pages qualify, not the reading itself. `path_of` returns
+    a path or None for a page number.
+    """
+    extra = (doc_result or {}).get('_extra_pages') or {}
+    pages = set(extra.get('notes') or []) | set(extra.get('audit') or [])
+    kept = {}
+    for p in pages:
+        if not isinstance(p, int) or not (1 <= p <= npages):
+            continue
+        path = path_of(p)
+        if path:
+            kept[p] = path
+    return kept
+
 def transcribe_cached(doc, p, name, dpi=200, model=M_MAIN):
     """transcribe one page with disk cache (crash-resilient, free reruns)"""
     cache = page_cache_path(doc, name, p, dpi, model)
@@ -1262,13 +1307,10 @@ def scan_pipeline(doc, name, only_pages=None):
     # also carry a transcript from an earlier run. The text has already been paid for, so
     # throwing it away would mean paying for the same page twice later. Nothing is paid here:
     # only a page whose transcript already exists on disk is read.
-    for p in sorted(set(doc_result['_extra_pages'].get('notes', []))
-                    | set(doc_result['_extra_pages'].get('audit', []))):
-        if not isinstance(p, int) or not (1 <= p <= npages):
-            continue
-        if not os.path.exists(page_cache_path(doc, name, p, 200, M_MAIN)):
-            continue
-        transcripts[f'nonform_p{p}'] = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN)
+    for p, path in sorted(nonform_pages_to_keep(
+            doc_result, npages,
+            lambda q: cached_transcript_path(doc, name, q)).items()):
+        transcripts[f'nonform_p{p}'] = open(path, encoding='utf-8').read()
     for key, plist in form_pages.items():
         parts = []
         for p in plist:

@@ -257,6 +257,40 @@ check('the key formula reproduces the names already on disk', not unreachable,
 
 d1.close(); d2.close()
 
+print('\n=== 12. non-form text is kept only when it was already paid for ===')
+# Notes and the auditor's report are not read as forms. If such a page WAS read anyway
+# (page 1 always is; annual reporting puts the auditor's report before the balance), its
+# text must be kept — but keeping it must never buy a new call. The decision is a pure
+# function so it can be tested here without paying anything.
+kept = P.nonform_pages_to_keep(
+    {'_extra_pages': {'notes': [3, 7, 'x', 0, 99], 'audit': [1, 3]}}, 20,
+    lambda p: '/cache/p%d.md' % p if p == 3 else None)
+check('only pages whose text already exists are kept', sorted(kept) == [3], sorted(kept))
+check('a page that was never read is not invented', 7 not in kept)
+check('notes and audit are considered together', set(kept) <= {1, 3})
+check('junk page numbers are ignored', all(isinstance(p, int) for p in kept))
+check('page numbers beyond the document are dropped',
+      P.nonform_pages_to_keep({'_extra_pages': {'notes': [25]}}, 20,
+                              lambda p: '/x.md') == {})
+check('a missing _extra_pages key is not an error',
+      P.nonform_pages_to_keep({}, 20, lambda p: '/x.md') == {})
+check('an empty label list keeps nothing',
+      P.nonform_pages_to_keep({'_extra_pages': {'notes': [], 'audit': []}}, 20,
+                              lambda p: '/x.md') == {})
+# The path finder must prefer 200 dpi but accept any dpi: refusing a 300 dpi transcript
+# because 200 dpi is missing would throw away text we already paid for.
+_d = pdf('Артген (ИСКЧ)_6мес_2025.pdf')
+check('a page that was never transcribed reports no cached text',
+      P.cached_transcript_path(_d, 'Артген (ИСКЧ)_6мес_2025.pdf', 999) is None)
+check('a page that WAS transcribed reports its path',
+      P.cached_transcript_path(_d, 'Артген (ИСКЧ)_6мес_2025.pdf', 1) is not None)
+try:
+    P.cached_transcript_path(_d, 'x.pdf', 1)
+    check('the path finder refuses a name that does not identify the document', False)
+except ValueError:
+    check('the path finder refuses a name that does not identify the document', True)
+_d.close()
+
 print('\n' + '=' * 60)
 print('passed: %d   failed: %d' % (len(PASS), len(FAIL)))
 if FAIL:

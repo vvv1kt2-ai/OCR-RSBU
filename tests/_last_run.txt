@@ -81,5 +81,17 @@
   ok   there are page transcripts to check against
   ok   the key formula reproduces the names already on disk
 
+=== 12. non-form text is kept only when it was already paid for ===
+  ok   only pages whose text already exists are kept
+  ok   a page that was never read is not invented
+  ok   notes and audit are considered together
+  ok   junk page numbers are ignored
+  ok   page numbers beyond the document are dropped
+  ok   a missing _extra_pages key is not an error
+  ok   an empty label list keeps nothing
+  ok   a page that was never transcribed reports no cached text
+  ok   a page that WAS transcribed reports its path
+  ok   the path finder refuses a name that does not identify the document
+
 ============================================================
-passed: 61   failed: 0
+passed: 71   failed: 0
