@@ -1,0 +1,128 @@
+[
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 0,
+  "checks_ok": true,
+  "note": ""
+ },
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "income_statement",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 0,
+  "checks_ok": true,
+  "note": ""
+ },
+ {
+  "stem": "ИПС_6мес_2026",
+  "form": "cash_flow",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 6,
+  "checks_ok": false,
+  "note": "не сошлось"
+ },
+ {
+  "stem": "КИФА_6мес_2026",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 0,
+  "checks_ok": true,
+  "note": ""
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 7,
+  "checks_ok": false,
+  "note": "не сошлось"
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 6,
+  "checks_ok": false,
+  "note": "не сошлось"
+ },
+ {
+  "stem": "Корпсан_6мес_2026",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 11,
+  "checks_ok": false,
+  "note": "не сошлось"
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 7,
+  "checks_ok": false,
+  "note": "не сошлось"
+ },
+ {
+  "stem": "Проект 111_6мес_2026",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 0,
+  "checks_ok": true,
+  "note": ""
+ },
+ {
+  "stem": "Простая еда_6мес_2025",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 0,
+  "checks_ok": true,
+  "note": ""
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 2,
+  "confirmed": 11,
+  "checks_ok": true,
+  "note": ""
+ },
+ {
+  "stem": "ТГК-14_6мес_2025",
+  "form": "balance",
+  "pages": 1,
+  "corrected": 1,
+  "confirmed": 6,
+  "checks_ok": false,
+  "note": "не сошлось"
+ },
+ {
+  "stem": "ТГК-14_6мес_2026",
+  "form": "income_statement",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 2,
+  "checks_ok": false,
+  "note": "отклонена защитой, не сошлось"
+ },
+ {
+  "stem": "Эфферон_6мес_2025",
+  "form": "balance",
+  "pages": 2,
+  "corrected": 0,
+  "confirmed": 5,
+  "checks_ok": false,
+  "note": "не сошлось"
+ }
+]

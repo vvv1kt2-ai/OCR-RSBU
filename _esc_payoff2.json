@@ -1,0 +1,128 @@
+[
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "balance",
+  "pages": 0,
+  "in_cache": 0,
+  "corrected": 0,
+  "confirmed": 0,
+  "ok": true
+ },
+ {
+  "stem": "Бианка премиум_6мес_2026",
+  "form": "income_statement",
+  "pages": 0,
+  "in_cache": 0,
+  "corrected": 0,
+  "confirmed": 0,
+  "ok": true
+ },
+ {
+  "stem": "ИПС_6мес_2026",
+  "form": "cash_flow",
+  "pages": 3,
+  "in_cache": 3,
+  "corrected": 0,
+  "confirmed": 6,
+  "ok": false
+ },
+ {
+  "stem": "КИФА_6мес_2026",
+  "form": "balance",
+  "pages": 3,
+  "in_cache": 2,
+  "corrected": 0,
+  "confirmed": 0,
+  "ok": true
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "form": "balance",
+  "pages": 8,
+  "in_cache": 8,
+  "corrected": 0,
+  "confirmed": 7,
+  "ok": false
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "balance",
+  "pages": 8,
+  "in_cache": 8,
+  "corrected": 0,
+  "confirmed": 6,
+  "ok": false
+ },
+ {
+  "stem": "Корпсан_6мес_2026",
+  "form": "balance",
+  "pages": 3,
+  "in_cache": 0,
+  "corrected": 0,
+  "confirmed": 11,
+  "ok": false
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "form": "balance",
+  "pages": 8,
+  "in_cache": 8,
+  "corrected": 0,
+  "confirmed": 7,
+  "ok": false
+ },
+ {
+  "stem": "Проект 111_6мес_2026",
+  "form": "balance",
+  "pages": 3,
+  "in_cache": 2,
+  "corrected": 0,
+  "confirmed": 0,
+  "ok": true
+ },
+ {
+  "stem": "Простая еда_6мес_2025",
+  "form": "balance",
+  "pages": 3,
+  "in_cache": 3,
+  "corrected": 0,
+  "confirmed": 0,
+  "ok": true
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "pages": 4,
+  "in_cache": 4,
+  "corrected": 2,
+  "confirmed": 11,
+  "ok": true
+ },
+ {
+  "stem": "ТГК-14_6мес_2025",
+  "form": "balance",
+  "pages": 2,
+  "in_cache": 2,
+  "corrected": 1,
+  "confirmed": 6,
+  "ok": false
+ },
+ {
+  "stem": "ТГК-14_6мес_2026",
+  "form": "income_statement",
+  "pages": 1,
+  "in_cache": 0,
+  "corrected": 0,
+  "confirmed": 2,
+  "ok": false
+ },
+ {
+  "stem": "Эфферон_6мес_2025",
+  "form": "balance",
+  "pages": 6,
+  "in_cache": 6,
+  "corrected": 0,
+  "confirmed": 5,
+  "ok": false
+ }
+]

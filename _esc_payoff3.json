@@ -1,0 +1,83 @@
+[
+ {
+  "stem": "ИПС_6мес_2026",
+  "form": "cash_flow",
+  "pages": 3,
+  "corrected": 0,
+  "confirmed": 6,
+  "ok": false,
+  "kind": "не сошлось"
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2025",
+  "form": "balance",
+  "pages": 8,
+  "corrected": 0,
+  "confirmed": 7,
+  "ok": false,
+  "kind": "не сошлось"
+ },
+ {
+  "stem": "КЛВЗ Кристалл_6мес_2026",
+  "form": "balance",
+  "pages": 8,
+  "corrected": 0,
+  "confirmed": 6,
+  "ok": false,
+  "kind": "не сошлось"
+ },
+ {
+  "stem": "Корпсан_6мес_2026",
+  "form": "balance",
+  "pages": 3,
+  "corrected": 0,
+  "confirmed": 11,
+  "ok": false,
+  "kind": "не сошлось"
+ },
+ {
+  "stem": "Моторные технологии_6мес_2025",
+  "form": "balance",
+  "pages": 8,
+  "corrected": 0,
+  "confirmed": 7,
+  "ok": false,
+  "kind": "не сошлось"
+ },
+ {
+  "stem": "Славянск ЭКО_6мес_2025",
+  "form": "balance",
+  "pages": 4,
+  "corrected": 2,
+  "confirmed": 11,
+  "ok": true,
+  "kind": "сошлось"
+ },
+ {
+  "stem": "ТГК-14_6мес_2025",
+  "form": "balance",
+  "pages": 2,
+  "corrected": 1,
+  "confirmed": 6,
+  "ok": false,
+  "kind": "не сошлось"
+ },
+ {
+  "stem": "ТГК-14_6мес_2026",
+  "form": "income_statement",
+  "pages": 1,
+  "corrected": 0,
+  "confirmed": 2,
+  "ok": false,
+  "kind": "не сошлось"
+ },
+ {
+  "stem": "Эфферон_6мес_2025",
+  "form": "balance",
+  "pages": 6,
+  "corrected": 0,
+  "confirmed": 5,
+  "ok": false,
+  "kind": "не сошлось"
+ }
+]
