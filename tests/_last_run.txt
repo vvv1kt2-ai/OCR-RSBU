@@ -28,7 +28,7 @@
 
 === 5. the guard does not fire on genuine artifacts ===
   ok   genuine artifacts exist to test against
-  ok   no false positives on the 22 genuine artifacts
+  ok   no false positives on the 26 genuine artifacts
 
 === 6. sibling conflict detection finds the known reclassification ===
   ok   conflicts found between the 2026 and the 2025 report

@@ -141,6 +141,51 @@ for p in sorted(glob.glob(os.path.join(EX, '*.json'))):
             false_pos.append((b, form))
 check('нет ложных срабатываний', not false_pos, str(false_pos))
 
+print('\n=== 7. гейт эскалации не пропускает стирание значений ===')
+# Дефект: эскалация вернула пустой первый столбец, стерев уже прочитанные значения.
+# Гейт сравнивал только число выполненных проверок, а стирание превращает ПРОВАЛЕННУЮ
+# проверку в НЕПРОВЕРЯЕМУЮ — счётчик не меняется. Данные ниже взяты из настоящего артефакта
+# «Моторные технологии_6мес_2025»: values_ocr1 — состояние до эскалации, values — после.
+_mot = os.path.join(EX, 'Моторные технологии_6мес_2025.json')
+if os.path.exists(_mot):
+    _j = json.load(io.open(_mot, encoding='utf-8'))
+    _before, _after = [], []
+    for _it in (_j.get('balance') or {}).get('items') or []:
+        if not _it.get('values_ocr1'):
+            continue
+        _b = dict(_it, values=list(_it['values_ocr1']))
+        _before.append(_b)
+        _after.append(dict(_it, values=list(_it['values'])))
+    check('взяты строки, изменённые эскалацией', len(_before) >= 5, f'{len(_before)}')
+    # Ключевое: старый критерий (число проверок) стирание НЕ видит — иначе правка была бы не нужна.
+    check('старый критерий стирание не замечал (иначе тест бессмыслен)',
+          P.n_checks_ok('balance', _after) >= P.n_checks_ok('balance', _before),
+          f'{P.n_checks_ok("balance", _before)} -> {P.n_checks_ok("balance", _after)}')
+    check('заполненных ячеек стало меньше — данные потеряны',
+          P.filled_values(_after) < P.filled_values(_before),
+          f'{P.filled_values(_before)} -> {P.filled_values(_after)}')
+    _accept, _why = P.escalation_gate('balance', _before, _after)
+    check('гейт ОТКЛОНЯЕТ слияние, стёршее значения', not _accept, _why)
+    check('причина названа как потеря значений', 'стёрто' in _why, _why)
+else:
+    print('  (артефакт отсутствует — блок 7 пропущен)')
+
+# Синтетика: та же форма, но столбец не стёрт, а прочитан лучше -> слияние обязано пройти.
+_good_before = [{'code': '1200', 'values': ['459962', '481336']},
+                {'code': '1210', 'values': ['236298', '174573']}]
+_good_after = [{'code': '1200', 'values': ['459962', '481336']},
+               {'code': '1210', 'values': ['236298', '174573']}]
+check('слияние без потерь проходит', P.escalation_gate('balance', _good_before, _good_after)[0])
+# Заполнение пустой ячейки — это улучшение, оно проходить обязано.
+_fill = [{'code': '1200', 'values': ['', '481336']},
+         {'code': '1210', 'values': ['236298', '174573']}]
+check('заполнение пустой ячейки проходит', P.escalation_gate('balance', _good_before[:1], _fill)[0])
+check('пустой набор не ломает гейт', P.escalation_gate('balance', [], [])[0])
+check('потеря замыкающего кода отклоняется',
+      not P.escalation_gate('balance',
+                            [{'code': '1700', 'values': ['969421']}],
+                            [{'code': '1700', 'values': ['']}])[0])
+
 print(f'\n=== ИТОГ: {ok} успешно, {fail} провалено ===')
 LOG.write(f'\n=== ИТОГ: {ok} успешно, {fail} провалено ===\n')
 LOG.close()

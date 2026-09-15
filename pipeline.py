@@ -292,6 +292,49 @@ def n_checks_ok(form_key, items):
     except Exception:
         return -1
 
+def filled_values(items):
+    """How many cells actually carry a number — the information content of a form.
+
+    Needed because `n_checks_ok` cannot see information DISAPPEARING. `eq()` in run_checks
+    returns None when a side is blank, and a blank comparison is counted neither as ok nor as
+    failed; so a check that FAILED (because the reported sum did not add up) becomes a check
+    that is merely UNCOMPUTABLE once the values are erased — same number of ok checks, less
+    data. Measured on «Моторные технологии_6мес_2025»: escalation returned an empty first
+    column (457, 200346, 4070, 467 all -> ''), which turned the failing identity
+    `1200 == 1210+1215+1220+1230+1240+1250+1260` into a vacuous one, so gate 2 saw
+    `now_ok == was_ok` and applied the merge; the transcript of page 2 plainly contains
+    «| Итого по разделу II | 1200 | 459 962 | 481 336 | 377 952 |», so the values were read
+    correctly first and destroyed afterwards. Escalation exists to read a page BETTER, so a
+    merge that removes information is never an improvement, whatever the check count says.
+    """
+    n = 0
+    for it in (items or []):
+        for tgt in [it] + list(it.get('children') or []):
+            for v in (tgt.get('values') or []):
+                if v is not None and str(v).strip() != '':
+                    n += 1
+    return n
+
+def escalation_gate(form_key, before, after):
+    """May an escalation merge be applied? Returns (accept, reason).
+
+    Criteria, in order of severity:
+      1. losing the closing total is fatal — the form is no longer a form;
+      2. fewer satisfied identities than before — the merge made arithmetic worse;
+      3. fewer filled cells — the merge destroyed information (the case above).
+    Purely a comparison of two item sets, so it is testable without a document or an LLM call.
+    """
+    if form_is_complete(form_key, before) and not form_is_complete(form_key, after):
+        return False, 'потеряла %s' % TERMINAL_CODE.get(form_key, 'замыкающий код')
+    was_ok, now_ok = n_checks_ok(form_key, before), n_checks_ok(form_key, after)
+    if now_ok < was_ok:
+        return False, 'проверок стало меньше (%d -> %d)' % (was_ok, now_ok)
+    was_fill, now_fill = filled_values(before), filled_values(after)
+    if now_fill < was_fill:
+        return False, ('стёрто значений: %d -> %d заполненных ячеек'
+                       % (was_fill, now_fill))
+    return True, ''
+
 def detect_columns(text):
     """column labels from header text: 3 balance dates or 2 period labels"""
     dates = []
@@ -853,21 +896,11 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
             f'{form_key}: эскалация предложила значения, которых нет в её же тексте '
             f'({shown}) — не применены, оставлены прежние значения')
     if changed:
-        now_ok = n_checks_ok(form_key, res['items'])
-        now_complete = form_is_complete(form_key, res['items'])
-        if was_complete and not now_complete:
+        accept, why = escalation_gate(form_key, before, res['items'])
+        if not accept:
             res['items'] = before
-            warnings.append(
-                f'{form_key}: эскалация отклонена — потеряла {TERMINAL_CODE[form_key]} '
-                f'({was_ok} проверок было, {now_ok} стало); значения возвращены')
-            print(f'  escalate: REFUSED — lost {TERMINAL_CODE[form_key]}')
-            changed = 0
-        elif now_ok < was_ok:
-            res['items'] = before
-            warnings.append(
-                f'{form_key}: эскалация отклонена — проверок стало меньше '
-                f'({was_ok} -> {now_ok}); значения возвращены к состоянию до эскалации')
-            print(f'  escalate: REFUSED — checks {was_ok} -> {now_ok}')
+            warnings.append(f'{form_key}: эскалация отклонена — {why}; значения возвращены')
+            print(f'  escalate: REFUSED — {why}')
             changed = 0
     if changed:
         res['checks'] = [dict(form=form_key, **c) for c in run_checks(form_key, res['items'])]
