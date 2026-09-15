@@ -591,7 +591,7 @@ DETECT_PROMPT = DETECT_PROMPT_V1
 # the OLD labels — the change looked applied and did nothing. The tag is derived from the
 # prompt text itself now, so an edit cannot be invisible. The original wording keeps the
 # empty tag, which is what the label sets already on disk are keyed by.
-DETECT_PROMPT_EDITED = False   # set alongside DETECT_PROMPT when the wording is changed
+# There is deliberately no version constant to bump: one existed before and was forgotten.
 
 def detect_cache_stem(name, prompt=None):
     """cache-key stem for detection labels: '<document>_detect', plus a digest once edited.
@@ -994,8 +994,28 @@ def transcribe_cached(doc, p, name, dpi=200, model=M_MAIN):
             print(f'  [cache] страница {p}: повтор тоже срезан фильтром — отдаю '
                   f'неполный текст, форму придётся эскалировать')
             return txt
-    open(cache, 'w', encoding='utf-8').write(txt)
+    _write_cache(cache, txt)
     return txt
+
+def _write_cache(path, text):
+    """Write a paid-for result to disk, and never lose it because of the disk.
+
+    A cache write used to be a bare `open(...).write(...)`, and that made the cache a
+    single point of failure for money already spent: with the pages directory missing, the
+    write raised, the exception travelled out through the caller's `except`, and a whole
+    detection pass that had just been paid for was thrown away and reported as
+    «detection failed» — 8 calls billed, zero labels kept. The directory is created now and
+    a failed write is a warning: the answer is already in memory and is still usable.
+    """
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(text)
+        return True
+    except Exception as e:
+        warnings.warn(f'не удалось записать кэш {path}: {e} — результат не сохранён, '
+                      f'повторный прогон оплатит его снова')
+        return False
 
 def cached_llm(tag, fn):
     """cache LLM JSON results on disk; tag must be unique per call.
@@ -1005,21 +1025,103 @@ def cached_llm(tag, fn):
     belongs in a page transcript's: two sites serving one model name must not share
     an artifact, or one provider's answer silently becomes another's. Polza's infix
     is empty, so its existing files keep their names byte for byte.
+
+    A write failure is a warning, not an exception: the answer has been paid for and is
+    returned either way (see _write_cache).
     """
     path = os.path.join(PAGESDIR, f'_llm_{tag}{_provider_infix()}.json')
     if os.path.exists(path):
         return json.load(open(path, encoding='utf-8'))
     obj = fn()
-    json.dump(obj, open(path, 'w', encoding='utf-8'), ensure_ascii=False)
+    _write_cache(path, json.dumps(obj, ensure_ascii=False))
+    return obj
     return obj
 
-def detect_pages(doc, cand, npages, warnings):
-    """Stage 1: label every candidate page with a category, cheap model at 120 dpi.
+def detect_page_cache_stem(name, p):
+    """cache-key stem for ONE page's label: '<document>_detect_pg_p<page>'."""
+    return f'{detect_cache_stem(name)}_pg_p{p}'
 
-    Extracted from scan_pipeline so that the paid detection pass can be run, compared and
-    re-run on its own — detection is the cheap stage (0.22 ₽ for the whole 41-document
-    pilot), and the only way to measure a change to DETECT_PROMPT is to call exactly this
-    function and diff the labels it returns.
+def detect_one_page(doc, p, npages):
+    """Label a single page: one call, one image, one page of context.
+
+    Returns the label as a string, or 'unknown' when the answer could not be read. The
+    distinction matters: 'other' would claim the page is not a form, while 'unknown' says
+    the run does not know — a page that is silently called 'other' is a page whose balance
+    can go missing without anyone noticing.
+    """
+    cm = [{'role': 'user', 'content': [
+        {'type': 'text', 'text': DETECT_PROMPT +
+         f' Это одна страница: страница {p} из {npages}.'},
+        *img_parts(render_png(doc[p - 1], 120), f'СТРАНИЦА {p}')]}]
+    # 2000, not 4000: one page needs one label, and the whole answer is a few tokens.
+    txt, _ = chat(cm, M_DETECT, temperature=0, max_tokens=2000)
+    pm = salvage_pages_map(txt, npages)
+    if pm:
+        for rec in pm:
+            if rec.get('page') == p:
+                return rec.get('form') or 'unknown'
+        return pm[0].get('form') or 'unknown'
+    try:
+        pm = extract_json(txt).get('pages', [])
+    except ValueError:
+        pm = []
+    for rec in pm:
+        if isinstance(rec, dict) and rec.get('page') == p:
+            return rec.get('form') or 'unknown'
+    m = re.search(r'"\s*\d*\s*"\s*:\s*"(\w+)"', txt) or \
+        re.search(r'\b(balance|income_statement|cash_flow|notes|audit|other)\b', txt)
+    return m.group(1) if m else 'unknown'
+
+def detect_pages_per_page(doc, cand, npages, warnings, name):
+    """Stage 1, one page per call — the method the measurements selected.
+
+    Why not ask about a group of pages in one message: a group answer is a single sample
+    that can be wrong for every page in it at once. Measured on НовосибирскАвтодор_6мес_2025
+    (49 pages, 5 independent runs per method, plusVibe, deepseek-v4.1-flash):
+
+        groups of 8 pages   agreement 78% (worst pair 61%), 2-8 form pages,
+                            coverage 40-49 pages, and 2 of 5 runs found NO balance at all
+        one page per call   agreement 96% (worst pair 94%), 8-10 form pages,
+                            coverage 49-49 pages, and 5 of 5 runs found the balance
+
+    The document's real balance sits on pages 2-3 (page 2 carries the header «Бухгалтерский
+    баланс», page 3 carries the terminal code 1700 — checked against the transcripts). Asking
+    per page found those two pages in every run; asking in groups lost the balance entirely
+    in 40% of runs, which for a 2025 document — where the balance is the only form wanted —
+    means the document comes back with no data at all.
+
+    A page whose label cannot be read is 'unknown', never 'other' (see detect_one_page).
+
+    Cost: detection is the cheap stage — 0.00198 ₽ per call measured over 474 calls, so
+    5 884 pages of per-page detection is roughly 12 ₽, against a 300 ₽ run budget. The
+    expensive stage is transcription, and it is driven by these labels, which is exactly
+    why the labels must not be a lottery.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    out = {}
+
+    def one(p):
+        def call():
+            try:
+                return detect_one_page(doc, p, npages)
+            except Exception as e:
+                warnings.append(f'detection: page {p} failed: {e}')
+                return 'unknown'
+        return p, cached_llm(detect_page_cache_stem(name, p), call)
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for p, lab in ex.map(one, list(cand)):
+            out[p] = lab
+    return [{'page': p, 'form': out[p]} for p in sorted(out)]
+
+def detect_pages(doc, cand, npages, warnings):
+    """Stage 1, OLD method: label pages in groups (one message for <=10 pages, else chunks of 8).
+
+    Kept because the measurements that chose per-page detection need it to compare against,
+    and because it documents what was wrong. It is NOT what the pipeline runs: see
+    `detect_pages_per_page`. Extracted from scan_pipeline so that the paid detection pass can
+    be run, compared and re-run on its own — the only way to measure a change to
+    DETECT_PROMPT is to call exactly this and diff the labels it returns.
     """
     msgs = [{'role': 'user', 'content': [{'type': 'text', 'text': DETECT_PROMPT}]}]
     for i in cand:
@@ -1074,10 +1176,12 @@ def scan_pipeline(doc, name, only_pages=None):
     warnings, transcripts = [], {}
     npages = len(doc)
     cand = only_pages or list(range(1, npages + 1))
-    # stage 1: detection, cheap model, 120 dpi — all pages as content parts of ONE message
+    # stage 1: detection, cheap model, 120 dpi. One page per call, each cached separately:
+    # the group method this replaced was a lottery — measured agreement 78% with the balance
+    # lost outright in 40% of runs, against 96% and never lost for one page per call. See
+    # `detect_pages_per_page` for the numbers.
     try:
-        pages_map = cached_llm(detect_cache_stem(name), lambda: detect_pages(
-            doc, cand, npages, warnings))
+        pages_map = detect_pages_per_page(doc, cand, npages, warnings, name)
     except Exception as e:
         warnings.append(f'detection failed: {e}')
         pages_map = []
@@ -1098,6 +1202,17 @@ def scan_pipeline(doc, name, only_pages=None):
         'notes': sorted({p.get('page') for p in pages_map if p.get('form') == 'notes'}),
         'audit': sorted({p.get('page') for p in pages_map if p.get('form') == 'audit'}),
     }
+    # A page detection could not label is NOT the same as a page it called `other`: the
+    # first is an admitted gap, the second is a claim. Silence about a gap is how a missing
+    # balance page goes unnoticed, so it is reported and kept in the artifact.
+    unlabeled = sorted({p.get('page') for p in pages_map
+                        if p.get('form') not in PAGE_LABELS})
+    doc_result['_extra_pages']['unlabeled'] = unlabeled
+    if unlabeled:
+        warnings.append(
+            f'detection: {len(unlabeled)} of {len(cand)} pages got no readable label '
+            f'({unlabeled[:20]}); they are treated as non-form')
+        print('  detected pages with NO label:', unlabeled)
     print('  detected form pages:', form_pages)
     if doc_result['_extra_pages']['notes'] or doc_result['_extra_pages']['audit']:
         print('  detected non-form text pages: notes=%s audit=%s'
@@ -1182,8 +1297,11 @@ def collect_scan_results(doc, name, transcripts, result):
     # up the auditor's report — which is the first thing wanted — without re-detecting.
     non_form = doc_result.get('_extra_pages') or {}
     non_form = {k: v for k, v in non_form.items() if v}
+    # Always present, even when empty: a consumer of this hook must be able to tell
+    # «there were no such pages» from «this run never looked», and an absent key cannot
+    # say which. The warning is still only raised when there is something to report.
+    result['source']['non_form_pages'] = non_form
     if non_form:
-        result['source']['non_form_pages'] = non_form
         result['warnings'].append(
             'страницы, не являющиеся формами, пропущены (задел на будущее): '
             + ', '.join(f'{k} — стр. {v}' for k, v in sorted(non_form.items())))

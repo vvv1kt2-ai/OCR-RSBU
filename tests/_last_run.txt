@@ -72,7 +72,8 @@
   ok   the structured-cache path carries the provider infix
   ok   the path is built in exactly one place, so no call site can bypass it
   ok   there are cached structured artifacts to check against
-  ok   no PlusVibe structured cache exists under a Polza-style name
+  ok   PlusVibe caches exist and all carry the provider infix
+  ok   no cache is named so that both providers would find it
   ok   the Polza infix is empty, so those names are unchanged
   ok   another provider gets its own structured cache
 
@@ -81,4 +82,4 @@
   ok   the key formula reproduces the names already on disk
 
 ============================================================
-passed: 60   failed: 0
+passed: 61   failed: 0

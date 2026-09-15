@@ -26,9 +26,11 @@ def print(*a, **k):
 
 
 def check(name, cond, detail=''):
+    # str(detail): a caller passing a list (a natural thing to pass as evidence) used to
+    # crash the whole suite inside this formatter, hiding the finding it was reporting.
     (PASS if cond else FAIL).append(name)
     print('  %-4s %s%s' % ('ok' if cond else 'FAIL', name,
-                           ('  <- ' + detail) if detail and not cond else ''))
+                           ('  <- ' + str(detail)) if detail and not cond else ''))
 
 
 def pdf(name):
@@ -218,8 +220,19 @@ import re as _re
 llm_files = [n for n in os.listdir(PAGES) if n.startswith('_llm_')]
 check('there are cached structured artifacts to check against', len(llm_files) > 20,
       len(llm_files))
-stray = [n for n in llm_files if n.endswith('_pv.json')]
-check('no PlusVibe structured cache exists under a Polza-style name', not stray, stray[:3])
+# The invariant is NOT "no PlusVibe cache exists on disk" — that was a snapshot of a moment
+# when only Polza had ever run, and it broke the day PlusVibe runs appeared, which is
+# correct behaviour, not a defect. What must hold at all times is that the two providers
+# cannot reach the same file: whichever provider wrote a cache, the other must look
+# somewhere else.
+pv_files = [n for n in llm_files if n.endswith('_pv.json')]
+check('PlusVibe caches exist and all carry the provider infix',
+      all(P._provider_infix(PR.active('plusvibe')) in n for n in pv_files),
+      pv_files[:3])
+check('no cache is named so that both providers would find it',
+      not [n for n in llm_files
+           if P._provider_infix(PR.active('polza')) == P._provider_infix(PR.active('plusvibe'))],
+      'the two infixes are equal, so the providers share names')
 check('the Polza infix is empty, so those names are unchanged',
       P._provider_infix(PR.active('polza')) == '')
 check('another provider gets its own structured cache',
