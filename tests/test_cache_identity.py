@@ -291,6 +291,39 @@ except ValueError:
     check('the path finder refuses a name that does not identify the document', True)
 _d.close()
 
+print('\n=== 13. a text layer with no form pages must fall back to the scan branch ===')
+# The old guard was `if not fp:`, and find_form_pages can return a key with an EMPTY page
+# list. An empty list is still a truthy dict entry, so the fallback was skipped and the
+# document came out empty (ИПС_6мес_2026 lost 121 values: forms on scan pages 1-15, text
+# layer holding notes on 16-65).
+check('a form with pages counts as found', P.text_branch_found_forms({'balance': [1, 2]}))
+check('a key with NO pages does not count as found — this is the defect',
+      not P.text_branch_found_forms({'income_statement': []}))
+check('an empty dict does not count as found',
+      not P.text_branch_found_forms({}))
+check('None does not crash and does not count as found',
+      not P.text_branch_found_forms(None))
+check('one real form among empty ones still counts (fallback must NOT fire)',
+      P.text_branch_found_forms({'balance': [3], 'cash_flow': []}))
+check('all keys empty means no forms',
+      not P.text_branch_found_forms({'balance': [], 'income_statement': [],
+                                     'cash_flow': []}))
+# The three documents the defect actually hits, by the shape their text layer returns.
+for _shape in ({'income_statement': []},):
+    check('the measured shape of the defect is rejected', not P.text_branch_found_forms(_shape))
+# The real documents: the predicate must send them to the scan fallback.
+for _stem in ('ИПС_6мес_2026', 'Йуми_6мес_2026', 'Селл-Сервис_6мес_2026'):
+    _p = os.path.join(DOWNLOADS, _stem + '.pdf')
+    if not os.path.exists(_p):
+        continue
+    _d = pymupdf.open(_p)
+    _fp = P.find_form_pages(_d)
+    _want = P.wanted_forms(_stem + '.pdf')
+    _fp = {k: v for k, v in _fp.items() if k in _want}
+    _d.close()
+    check('%s: falls back to the scan branch now' % _stem,
+          not P.text_branch_found_forms(_fp), _fp)
+
 print('\n' + '=' * 60)
 print('passed: %d   failed: %d' % (len(PASS), len(FAIL)))
 if FAIL:

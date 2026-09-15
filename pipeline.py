@@ -887,6 +887,21 @@ def company_from_file(name):
     base = re.sub(r'_(\d+мес|год)_\d{4}\.pdf$', '', name, flags=re.I)
     return os.path.splitext(base)[0].strip()
 
+def text_branch_found_forms(fp):
+    """True only when the text layer actually yielded form PAGES.
+
+    Not `bool(fp)`. find_form_pages can return a key with an EMPTY page list — measured as
+    `{'income_statement': []}` — and an empty list is still a truthy dict entry, so the old
+    `if not fp:` was false and the scan fallback was skipped entirely. The document then
+    came out EMPTY. Three documents in the corpus have exactly that shape (ИПС_6мес_2026,
+    Йуми_6мес_2026, Селл-Сервис_6мес_2026); ИПС lost 121 values this way, and it is a mixed
+    PDF: forms sit on scan pages 1-15 while the text layer holds notes on pages 16-65, so
+    the text branch finds no form values to report and there is nothing for it to complete.
+    A truly empty dict `{}` always worked — the fallback fired — which is why this hid for
+    so long: it needs a document where the key survives the scope filter with no pages.
+    """
+    return bool(fp) and any(fp.values())
+
 def wanted_forms(name):
     """Form scope per file: 2025 -> balance only (scope cut); PILOT_FORMS=balance,cash_flow overrides."""
     if os.environ.get('PILOT_FORMS'):
@@ -1559,8 +1574,8 @@ def process(path):
             result['checks'] = [c for c in result['checks'] if c['form'] != key] + chks2
             if key == 'balance' and not all(c['ok'] for c in chks2):
                 escalate_failed_form(doc, key, result, result['warnings'], name=name)
-        if not fp:
-            # text layer present but no target forms in text. Two cases:
+        if not text_branch_found_forms(fp):
+            # text layer present but no target forms ARE ACTUALLY IN IT. Two cases:
             #  a) hybrid: forms are SCANS (image-only pages) -> cheap detection over
             #     image-only pages only, then scan branch on the detected pages
             #  b) notes-only: no image pages -> one cached LLM pass over table-like

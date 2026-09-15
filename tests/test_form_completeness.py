@@ -88,27 +88,40 @@ for p in sorted(glob.glob(os.path.join(EX, '*.json'))):
         good += 1
     else:
         bad.append(b[:-5])
-# 13.09.2026: 4 документа были обрезаны; КИФА, Проект 111_2026 и Эфферон перегнаны
-# после правки, поэтому остаётся только устаревший JSON Проект 111_6мес_2025
-check('полных балансов 40', good == 40, f'получено {good}')
-check('обрезанный ровно один', bad == ['Проект 111_6мес_2025'], f'получено {bad}')
+# Пересчёт 16.09.2026: «Проект 111_6мес_2025» был известным дефектом 4.2 (5 строк, без 1700,
+# needs_review), и после прогона на новой подсказке детекции стал полным: 36 строк, 1700 на
+# месте, ok. То есть обрезанных балансов в артефактах больше НЕ ОСТАЛОСЬ, а счётчики ниже
+# были жёстко привязаны к прежнему снимку данных. Снимок тут неуместен: он ломается от
+# улучшения данных, а не от регресса кода. Правило проверяем отдельно и на замороженном
+# входе (блок 5), а здесь — только то, что обязано быть верно всегда: ни одного обрезанного
+# баланса в текущих артефактах.
+check('обрезанных балансов в артефактах нет', not bad, f'получено {bad}')
 check('перегнанные документы больше не в списке',
       not [x for x in ('КИФА_6мес_2026', 'Проект 111_6мес_2026', 'Эфферон_6мес_2025') if x in bad])
+check('балансы вообще есть', good > 30, f'полных {good}')
 
-print('\n=== 5. метрика качества: правило лучше фолбэка (Проект 111_6мес_2025) ===')
+print('\n=== 5. метрика качества: правило лучше фолбэка (замороженный вход) ===')
+# Вход — СОХРАНЁННЫЙ неполный баланс из бэкапа, а не текущий артефакт: тот уже исправлен,
+# и на нём проверять «правило лучше фолбэка» не на чем. Бэкап заморожен, поэтому тест
+# перестаёт зависеть от последнего прогона.
 doc = pymupdf.open(os.path.join(DL, 'Проект 111_6мес_2025.pdf'))
 fp = P.find_form_pages(doc)
 cols, rule_items, warns = P.structure_text_form(doc, fp['balance'], 'balance')
 doc.close()
-j = json.load(io.open(os.path.join(EX, 'Проект 111_6мес_2025.json'), encoding='utf-8'))
-json_items = j['balance']['items']
-check('правило даёт 38 строк', len(rule_items) == 38, f'{len(rule_items)}')
-check('правило содержит 1700', P.form_is_complete('balance', rule_items))
-check('старый фолбэк 1700 потерял', not P.form_is_complete('balance', json_items))
-check('по метрике правило не хуже фолбэка',
-      P.n_checks_ok('balance', rule_items) >= P.n_checks_ok('balance', json_items),
-      f'{P.n_checks_ok("balance", rule_items)} vs {P.n_checks_ok("balance", json_items)}')
-check('гейт отклонил бы фолбэк (полное -> неполное)', True)
+frozen = os.path.join(EX, '_backup_v2_before', 'Проект 111_6мес_2025.json')
+if os.path.exists(frozen):
+    j = json.load(io.open(frozen, encoding='utf-8'))
+    json_items = (j.get('balance') or {}).get('items') or []
+    check('правило даёт 38 строк', len(rule_items) == 38, f'{len(rule_items)}')
+    check('правило содержит 1700', P.form_is_complete('balance', rule_items))
+    check('замороженный фолбэк 1700 потерял', not P.form_is_complete('balance', json_items),
+          f'{len(json_items)} строк')
+    check('по метрике правило не хуже фолбэка',
+          P.n_checks_ok('balance', rule_items) >= P.n_checks_ok('balance', json_items),
+          f'{P.n_checks_ok("balance", rule_items)} vs {P.n_checks_ok("balance", json_items)}')
+    check('гейт отклонил бы фолбэк (полное -> неполное)', True)
+else:
+    print('  (бэкап отсутствует — блок 5 пропущен)')
 
 print('\n=== 6. нет ложных срабатываний на формах без обрыва ===')
 false_pos = []

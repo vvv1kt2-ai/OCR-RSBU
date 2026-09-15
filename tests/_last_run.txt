@@ -28,7 +28,7 @@
 
 === 5. the guard does not fire on genuine artifacts ===
   ok   genuine artifacts exist to test against
-  ok   no false positives on the 15 genuine artifacts
+  ok   no false positives on the 22 genuine artifacts
 
 === 6. sibling conflict detection finds the known reclassification ===
   ok   conflicts found between the 2026 and the 2025 report
@@ -93,5 +93,17 @@
   ok   a page that WAS transcribed reports its path
   ok   the path finder refuses a name that does not identify the document
 
+=== 13. a text layer with no form pages must fall back to the scan branch ===
+  ok   a form with pages counts as found
+  ok   a key with NO pages does not count as found — this is the defect
+  ok   an empty dict does not count as found
+  ok   None does not crash and does not count as found
+  ok   one real form among empty ones still counts (fallback must NOT fire)
+  ok   all keys empty means no forms
+  ok   the measured shape of the defect is rejected
+  ok   ИПС_6мес_2026: falls back to the scan branch now
+  ok   Йуми_6мес_2026: falls back to the scan branch now
+  ok   Селл-Сервис_6мес_2026: falls back to the scan branch now
+
 ============================================================
-passed: 71   failed: 0
+passed: 81   failed: 0
