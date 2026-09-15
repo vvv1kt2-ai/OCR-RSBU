@@ -78,7 +78,7 @@ for f in old_files:
     doc = P.pymupdf.open(path)
     npages = len(doc)
     warns = []
-    tag = f'{stem}_detect_{P.DETECT_PROMPT_VERSION}'
+    tag = P.detect_cache_stem(stem + '.pdf')
     try:
         new = label_map(P.cached_llm(tag, lambda: P.detect_pages(
             doc, list(range(1, npages + 1)), npages, warns)))

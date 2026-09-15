@@ -88,9 +88,13 @@ src = json.load(open(os.path.join(P.OUTDIR, 'ТГК-14_6мес_2025.json'), enco
 check('в результате записан поставщик', 'provider' in src['source'], sorted(src['source']))
 check('поставщик непустой', bool(src['source']['provider']))
 check('поле модели сохранено рядом', 'ocr_model' in src['source'], sorted(src['source']))
-check('поставщик совпадает с активным профилем',
-      src['source']['provider'] == P.ACTIVE_PROFILE.name,
-      (src['source']['provider'], P.ACTIVE_PROFILE.name))
+# The artifact must say who made it, and that name must resolve — but it must NOT be
+# compared with the currently active profile: the artifacts on disk were made by Polza
+# while PlusVibe is now the default, and an artifact cannot retroactively change author
+# when the default moves. Coupling the two only passed while they happened to coincide.
+check('записанный поставщик — известный профиль',
+      src['source']['provider'] in PR.PROFILES,
+      (src['source']['provider'], sorted(PR.PROFILES)))
 check('файл и число страниц по-прежнему на месте',
       src['source']['file'] and src['source']['pages_total'] > 0)
 

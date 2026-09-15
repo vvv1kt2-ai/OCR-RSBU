@@ -134,10 +134,12 @@ def old_key(doc, name, p, dpi, model):
                                                        P.doc_fingerprint(doc)))
 
 check('Polza key is byte-identical to the old formula',
-      P.page_cache_path(d1, 'ТГК-14_6мес_2025.pdf', 3, 300, P.M_ESC)
+      P.page_cache_path(d1, 'ТГК-14_6мес_2025.pdf', 3, 300, P.M_ESC,
+                        profile=PR.active('polza'))
       == old_key(d1, 'ТГК-14_6мес_2025.pdf', 3, 300, P.M_ESC))
 check('Polza key is byte-identical for the main model too',
-      P.page_cache_path(d1, 'ТГК-14_6мес_2025.pdf', 6, 200, P.M_MAIN)
+      P.page_cache_path(d1, 'ТГК-14_6мес_2025.pdf', 6, 200, P.M_MAIN,
+                        profile=PR.active('polza'))
       == old_key(d1, 'ТГК-14_6мес_2025.pdf', 6, 200, P.M_MAIN))
 
 other = PR.Profile('другой', 'https://example.test/v1/chat', 'K',

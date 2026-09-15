@@ -49,7 +49,7 @@ def _msg(fn):
 
 print('--- реестр профилей ---')
 check('Polza зарегистрирован', 'polza' in PR.PROFILES)
-check('активный профиль по умолчанию — Polza', PR.active().name == 'polza')
+check('активный профиль по умолчанию — PlusVibe', PR.active().name == 'plusvibe')
 check('активный профиль берётся из переменной окружения',
       PR.active('polza').name == 'polza')
 check('неизвестный профиль даёт понятную ошибку',
@@ -59,15 +59,17 @@ check('в ошибке перечислены известные профили'
 
 print('--- профиль описывает поставщика целиком ---')
 p = PR.active()
+p_polza = PR.active('polza')
 check('есть адрес точки чата', bool(p.chat_url))
-check('есть имя ключа в файле учётных данных', p.key_name == 'POLZA_API_KEY')
+check('есть имя ключа в файле учётных данных', p_polza.key_name == 'POLZA_API_KEY')
 check('есть все три роли', sorted(p.roles) == ['detect', 'esc', 'main'])
 check('есть таблица цен', len(p.prices) >= 3)
 check('роли заполнены', all(p.roles[r] for r in ('detect', 'main', 'esc')))
 check('адрес роли main непустой', bool(p.address('main')))
 check('обращение к несуществующей роли даёт понятную ошибку',
       raises(lambda: p.address('нетакой'), KeyError))
-check('метка кэша у Polza пуста (ключи прежние)', p.cache_suffix() == '')
+check('метка кэша у Polza пуста (ключи прежние)', p_polza.cache_suffix() == '')
+check('метка кэша у PlusVibe не пуста', p.cache_suffix() == 'pv')
 
 print('--- сборка запроса чистая ---')
 url, headers, body = PR.build_request(p, p.roles['main'], [{'role': 'user', 'content': 'x'}],
@@ -87,7 +89,7 @@ check('сборка не читает диск и не ходит в сеть',
       'urllib' not in json.dumps(str(PR.build_request.__code__.co_names)))
 
 print('--- ключ ---')
-check('ключ Polza читается', len(PR.load_key(p)) > 10)
+check('ключ Polza читается', len(PR.load_key(p_polza)) > 10)
 missing = PR.Profile('нетакого', 'https://x/y', 'НЕТ_ТАКОГО_КЛЮЧА',
                      {'detect': 'a', 'main': 'b', 'esc': 'c'}, {})
 check('отсутствие ключа даёт понятную ошибку',

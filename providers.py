@@ -12,8 +12,10 @@ r"""Поставщик ИИ как профиль, а не как свойств
 невозможно ни проверить глазами, ни отредактировать. В JSON-файл их кладёт скрипт,
 а сверяются они численно (длина и sha1), см. `verify_profiles.py`.
 
-Активный профиль выбирается переменной окружения PILOT_PROVIDER, по умолчанию —
-Polza. Возврат на Polza стоит одной переменной и не требует правки файлов.
+Активный профиль выбирается переменной окружения PILOT_PROVIDER. По умолчанию —
+PlusVibe: это выбранный поставщик целевых прогонов, и его цены в таблице polza выше
+в двенадцать раз, поэтому молчаливый уход на Polza — это не «безопасный откат», а
+двенадцатикратный перерасход. Вернуться на Polza стоит одной переменной.
 """
 import io, os, re, json, hashlib, warnings
 
@@ -21,7 +23,7 @@ CRED = r'C:\Users\1\.dsh\.credentials.yaml'
 PROFILES_JSON = os.environ.get('PILOT_PROFILES', r'D:\models\providers.json')
 ENV_VAR = 'PILOT_PROVIDER'
 REASONING_VAR = 'PILOT_REASONING'
-DEFAULT_PROVIDER = 'polza'
+DEFAULT_PROVIDER = 'plusvibe'
 
 # Режим рассуждений: параметр `reasoning_effort`, который поставщик принимает, а
 # модель может и проигнорировать. Измерено на PlusVibe: у основной модели он снимает
@@ -178,7 +180,7 @@ def reset():
 
 
 def active(name=None, path=None):
-    """активный профиль: аргумент, переменная окружения, по умолчанию Polza"""
+    """активный профиль: аргумент, переменная окружения, иначе значение по умолчанию"""
     name = name or os.environ.get(ENV_VAR) or DEFAULT_PROVIDER
     if name in _ACTIVE:
         return _ACTIVE[name]

@@ -17,7 +17,7 @@ for stem in ('Артген (ИСКЧ)_6мес_2025', 'Артген (ИСКЧ)_6�
     print('=' * 70)
     print(stem)
     old_f = os.path.join(PAGES, f'_llm_{stem}_detect.json')
-    new_f = os.path.join(PAGES, f'_llm_{stem}_detect_{P.DETECT_PROMPT_VERSION}.json')
+    new_f = os.path.join(PAGES, f'_llm_{P.detect_cache_stem(stem + ".pdf")}.json')
     for lbl, f in (('старые метки', old_f), ('новые метки', new_f)):
         if not os.path.exists(f):
             print('  %s: нет файла' % lbl); continue

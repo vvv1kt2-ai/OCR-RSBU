@@ -571,26 +571,39 @@ def _normalize_llm(llm, form_key=None):
     return items
 
 # ---------------------------------------------------------------- scan branch
-DETECT_PROMPT = ('Даны страницы PDF по порядку (последняя строка каждого приложения = номер страницы). '
-                 'Определи для каждой страницы РОВНО одну категорию: '
-                 'balance (Бухгалтерский баланс, 0710001), income_statement (Отчет о финансовых результатах, 0710002), '
-                 'cash_flow (Отчет о движении денежных средств, 0710005), '
-                 'notes (ПОЯСНЕНИЯ к балансу и отчёту: текстовые страницы с расшифровками — состав основных средств, '
-                 'запасов, дебиторской и кредиторской задолженности, связанные стороны, события после отчётной даты), '
-                 'audit (АУДИТОРСКОЕ ЗАКЛЮЧЕНИЕ: текст с мнением аудитора, подписями, названием аудиторской организации; '
-                 'в полугодовой отчётности его обычно нет, в годовой оно идёт ДО баланса, то есть баланс может начинаться не с 1-й страницы), '
-                 'other (титульный лист, прочее). '
-                 'Продолжение формы (в шапке "Форма 07100XX с. N") = та же форма. '
-                 'ВАЖНО: страницы пояснений и аудиторского заключения НЕ относи к формам, даже если на них '
-                 'встречаются названия и числа строк баланса — это отдельные текстовые документы, а не форма 07100XX. '
-                 'Ответь ОДНОЙ строкой строго в формате {"1":"other","2":"balance",...} без пояснений.')
+DETECT_PROMPT_V1 = ('Даны страницы PDF по порядку (последняя строка каждого приложения = номер страницы). '
+                    'Определи для каждой формы: balance (Бухгалтерский баланс, 0710001), income_statement (Отчет о финансовых результатах, 0710002), '
+                    'cash_flow (Отчет о движении денежных средств, 0710005), other. '
+                    'Продолжение формы (в шапке "Форма 07100XX с. N") = та же форма. '
+                    'Ответь ОДНОЙ строкой строго в формате {"1":"other","2":"balance",...} без пояснений.')
 
-# The detection prompt is part of the artifact it produces: rewording it changes the labels,
-# but the cache key did not include the prompt, so a rewritten prompt silently kept returning
-# the OLD labels for every document already detected — the fix would look applied and do
-# nothing. Bump this whenever DETECT_PROMPT changes, and expect one paid re-detection pass
-# (detection is the cheap stage: 0.22 ₽ for the 41-document pilot).
-DETECT_PROMPT_VERSION = 'v2'
+# The wording was rewritten on 16.09.2026 to add `notes` and `audit` categories, measured,
+# and REVERTED: it made the run read 32% more form pages (361 -> 476 over 30 documents,
+# +115 pages) while the benefit was unprovable, because detection turned out not to
+# reproduce at all (see below). The categories remain understood by the code — a future
+# prompt may return them — but the current prompt never asks for them.
+DETECT_PROMPT = DETECT_PROMPT_V1
+
+# The prompt IS part of the artifact it produces: its wording decides which pages come back
+# labelled as forms, so two different prompts must never share cached labels. This used to
+# be a hand-maintained version constant, and that is exactly how a bug happened: the prompt
+# was rewritten, the constant was not, and every already-detected document kept returning
+# the OLD labels — the change looked applied and did nothing. The tag is derived from the
+# prompt text itself now, so an edit cannot be invisible. The original wording keeps the
+# empty tag, which is what the label sets already on disk are keyed by.
+DETECT_PROMPT_EDITED = False   # set alongside DETECT_PROMPT when the wording is changed
+
+def detect_cache_stem(name, prompt=None):
+    """cache-key stem for detection labels: '<document>_detect', plus a digest once edited.
+
+    A rewritten prompt must not read another prompt's labels, and must not be silently
+    ignored either — so the key follows the text, not a version number someone has to
+    remember to bump.
+    """
+    prompt = DETECT_PROMPT if prompt is None else prompt
+    t = '' if prompt == DETECT_PROMPT_V1 else hashlib.sha1(prompt.encode('utf-8')).hexdigest()[:8]
+    return f'{os.path.splitext(name)[0]}_detect' + (f'_{t}' if t else '')
+
 FORM_LABELS = ('balance', 'income_statement', 'cash_flow')
 PAGE_LABELS = FORM_LABELS + ('notes', 'audit', 'other')
 
@@ -1063,8 +1076,8 @@ def scan_pipeline(doc, name, only_pages=None):
     cand = only_pages or list(range(1, npages + 1))
     # stage 1: detection, cheap model, 120 dpi — all pages as content parts of ONE message
     try:
-        pages_map = cached_llm(f'{os.path.splitext(name)[0]}_detect_{DETECT_PROMPT_VERSION}',
-                               lambda: detect_pages(doc, cand, npages, warnings))
+        pages_map = cached_llm(detect_cache_stem(name), lambda: detect_pages(
+            doc, cand, npages, warnings))
     except Exception as e:
         warnings.append(f'detection failed: {e}')
         pages_map = []
