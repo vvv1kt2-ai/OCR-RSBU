@@ -571,18 +571,38 @@ def _normalize_llm(llm, form_key=None):
     return items
 
 # ---------------------------------------------------------------- scan branch
+# Two wordings exist and the difference matters. V1 asks only about the three forms, so a
+# page of notes has nowhere to go: the model must answer balance/income_statement/cash_flow/
+# other, and it answers `balance`. Measured on the pilot artifacts: of 384 pages read as form
+# pages, **171 (45%) contain no row code at all** — they are notes. «Артген (ИСКЧ)_6мес_2025»
+# page 30 is «4.1. Наличие и движение основных средств», and it was read as the balance;
+# «НовосибирскАвтодор_6мес_2026» page 43 is «4. Основные средства (ОС)», labelled cash_flow.
+# 23 of 41 documents were affected. So V2 is the active wording: it names `notes` and `audit`
+# as categories, which is what keeps notes out of the forms.
+#
+# V1 is kept, and kept reachable, because the cache tag is derived from the prompt text: the
+# label sets already on disk were produced by V1, so their names must stay reproducible.
 DETECT_PROMPT_V1 = ('Даны страницы PDF по порядку (последняя строка каждого приложения = номер страницы). '
                     'Определи для каждой формы: balance (Бухгалтерский баланс, 0710001), income_statement (Отчет о финансовых результатах, 0710002), '
                     'cash_flow (Отчет о движении денежных средств, 0710005), other. '
                     'Продолжение формы (в шапке "Форма 07100XX с. N") = та же форма. '
                     'Ответь ОДНОЙ строкой строго в формате {"1":"other","2":"balance",...} без пояснений.')
 
-# The wording was rewritten on 16.09.2026 to add `notes` and `audit` categories, measured,
-# and REVERTED: it made the run read 32% more form pages (361 -> 476 over 30 documents,
-# +115 pages) while the benefit was unprovable, because detection turned out not to
-# reproduce at all (see below). The categories remain understood by the code — a future
-# prompt may return them — but the current prompt never asks for them.
-DETECT_PROMPT = DETECT_PROMPT_V1
+DETECT_PROMPT_V2 = ('Даны страницы PDF по порядку (последняя строка каждого приложения = номер страницы). '
+                    'Определи для каждой страницы РОВНО одну категорию: '
+                    'balance (Бухгалтерский баланс, 0710001), income_statement (Отчет о финансовых результатах, 0710002), '
+                    'cash_flow (Отчет о движении денежных средств, 0710005), '
+                    'notes (ПОЯСНЕНИЯ к балансу и отчёту: текстовые страницы с расшифровками — состав основных средств, '
+                    'запасов, дебиторской и кредиторской задолженности, связанные стороны, события после отчётной даты), '
+                    'audit (АУДИТОРСКОЕ ЗАКЛЮЧЕНИЕ: текст с мнением аудитора, подписями, названием аудиторской организации; '
+                    'в полугодовой отчётности его обычно нет, в годовой оно идёт ДО баланса, то есть баланс может начинаться не с 1-й страницы), '
+                    'other (титульный лист, прочее). '
+                    'Продолжение формы (в шапке "Форма 07100XX с. N") = та же форма. '
+                    'ВАЖНО: страницы пояснений и аудиторского заключения НЕ относи к формам, даже если на них '
+                    'встречаются названия и числа строк баланса — это отдельные текстовые документы, а не форма 07100XX. '
+                    'Ответь ОДНОЙ строкой строго в формате {"1":"other","2":"balance",...} без пояснений.')
+
+DETECT_PROMPT = DETECT_PROMPT_V2
 
 # The prompt IS part of the artifact it produces: its wording decides which pages come back
 # labelled as forms, so two different prompts must never share cached labels. This used to
@@ -1236,6 +1256,19 @@ def scan_pipeline(doc, name, only_pages=None):
         list(ex.map(lambda p: transcribe_cached(doc, p, name, dpi=200, model=M_MAIN), todo))
     for p in title_pages:
         transcripts[f'title_p{p}'] = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN)
+    # Pages that are NOT forms are not read as part of a form — but if such a page was read
+    # ANYWAY, its text is kept rather than dropped. Page 1 is always read (it carries
+    # inn/okpo/unit), and in annual reporting page 1 can be the auditor's report; a page can
+    # also carry a transcript from an earlier run. The text has already been paid for, so
+    # throwing it away would mean paying for the same page twice later. Nothing is paid here:
+    # only a page whose transcript already exists on disk is read.
+    for p in sorted(set(doc_result['_extra_pages'].get('notes', []))
+                    | set(doc_result['_extra_pages'].get('audit', []))):
+        if not isinstance(p, int) or not (1 <= p <= npages):
+            continue
+        if not os.path.exists(page_cache_path(doc, name, p, 200, M_MAIN)):
+            continue
+        transcripts[f'nonform_p{p}'] = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN)
     for key, plist in form_pages.items():
         parts = []
         for p in plist:
@@ -1291,20 +1324,32 @@ def collect_scan_results(doc, name, transcripts, result):
                        'columns': d['llm'].get('columns', []),
                        'items': items, 'transcript_pages': d['transcript_pages']}
         result['checks'] += [dict(form=key, **c) for c in run_checks(key, items)]
-    # Hook for later: pages detection labelled as notes / auditor's report. They are not
-    # read now (they are text documents, not forms, and were previously polluting both the
-    # forms and escalation), but the page numbers are recorded so the next stage can pick
-    # up the auditor's report — which is the first thing wanted — without re-detecting.
+    # Hook for later: pages detection labelled as notes / the auditor's report. They are not
+    # read as part of a form (they are separate text documents, and reading them as forms was
+    # what put 171 codeless pages into the balance), but the page numbers are recorded so the
+    # next stage can pick up the auditor's report — which is wanted first — without
+    # re-detecting. The auditor's report precedes the balance in annual reporting, so «page 1
+    # is the balance» must never be assumed.
     non_form = doc_result.get('_extra_pages') or {}
     non_form = {k: v for k, v in non_form.items() if v}
     # Always present, even when empty: a consumer of this hook must be able to tell
     # «there were no such pages» from «this run never looked», and an absent key cannot
     # say which. The warning is still only raised when there is something to report.
     result['source']['non_form_pages'] = non_form
+    # Text of non-form pages that were read anyway (page 1 always is; see scan_pipeline).
+    # Kept because it has already been paid for, and a page number alone cannot say what the
+    # auditor's report actually says. Pages that were never read are absent — that is not an
+    # error, it is the normal case.
+    non_form_texts = {k[len('nonform_p'):]: v for k, v in transcripts.items()
+                      if k.startswith('nonform_p') and v}
+    if non_form_texts:
+        result['source']['non_form_texts'] = non_form_texts
     if non_form:
         result['warnings'].append(
-            'страницы, не являющиеся формами, пропущены (задел на будущее): '
-            + ', '.join(f'{k} — стр. {v}' for k, v in sorted(non_form.items())))
+            'страницы, не являющиеся формами, не читаются как формы (задел на будущее): '
+            + ', '.join(f'{k} — стр. {v}' for k, v in sorted(non_form.items()))
+            + (f'; текст уже прочитанных сохранён: стр. {sorted(non_form_texts)}'
+               if non_form_texts else ''))
     # drop 'empty' forms: structuring returned nothing usable (wrong-page garbage)
     for key in ('balance', 'income_statement', 'cash_flow'):
         d = result.get(key)
