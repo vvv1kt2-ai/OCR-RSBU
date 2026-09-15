@@ -1587,15 +1587,26 @@ def process(path):
                 try:
                     llm = cached_llm(tag, lambda: llm_structure_form(txt, key)[0])
                     items = _normalize_llm(llm, key)
-                    was, now = n_checks_ok(key, result[key]['items']), n_checks_ok(key, items)
-                    if form_is_complete(key, result[key]['items']) and not form_is_complete(key, items):
-                        # Проект 111_6мес_2025 lost its whole passive side this way:
-                        # a complete rule parse was replaced by 5 rows ending at 1150
+                    # Same gate as the escalation merge, and for the same reason: counting
+                    # passing checks cannot see information DISAPPEARING.
+                    #
+                    # Honest note on the evidence. I first applied this here because the
+                    # fallback on «Рекорд трейд_6мес_2026» / cash_flow looked like it had
+                    # dropped 31 values — the rule parser produced 42 rows, the fallback 13.
+                    # That was a defect in MY measuring script: it read top-level items only,
+                    # while the breakdown 4111…4329 had moved into CHILDREN. A full walk gives
+                    # 44 rows and 57 filled cells either way, so no data was lost there and
+                    # this gate does not fire on it. The criterion itself is measured on the
+                    # escalation case (escalation_gate docstring: «Моторные технологии_6мес_2025»
+                    # had a whole column wiped), and is carried over here because the failure
+                    # mode — checks stay green while cells vanish — is structural, not specific
+                    # to escalation. It only rejects a fallback that carries FEWER filled cells
+                    # than the rule parse it replaces, and it says so in a warning.
+                    accept, why = escalation_gate(key, result[key]['items'], items)
+                    if not accept:
                         result['warnings'].append(
-                            f'{key}: llm fallback lost {TERMINAL_CODE[key]} -> kept rule parse')
-                    elif now < was:
-                        result['warnings'].append(
-                            f'{key}: llm fallback passed fewer checks ({now} < {was}) -> kept rule parse')
+                            f'{key}: llm fallback отклонён ({why}) -> оставлен разбор правилом')
+                        print(f'  {key}: llm fallback REFUSED — {why}')
                     else:
                         result[key]['items'] = items
                         if llm.get('columns'): result[key]['columns'] = llm['columns']
