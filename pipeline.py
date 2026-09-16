@@ -470,6 +470,13 @@ def run_checks(form_key, items):
     def eq(a, b): return a is not None and b is not None and abs(a - b) <= TOL
     def nz(*xs): return sum(x for x in xs if x is not None)
     def has(*xs): return any(x is not None for x in xs)
+    def sect(total, parts):
+        """итог раздела против суммы слагаемых; None, если проверять нечего"""
+        def fn(c):
+            add = [S(k, c) for k in parts]
+            if not has(S(total, c)) or not has(*add): return None
+            return eq(S(total, c), nz(*add))
+        return fn
     if form_key == 'balance':
         rules = [
             ('1600 == 1700', lambda c: eq(S('1600', c), S('1700', c)) if has(S('1600', c)) else None),
@@ -481,6 +488,13 @@ def run_checks(form_key, items):
             ('1100 == 1110+1120+1130+1140+1150+1160+1170+1180+1190', lambda c: eq(S('1100', c), nz(*[S(k, c) for k in ('1110','1120','1130','1140','1150','1160','1170','1180','1190')])) if has(S('1100', c)) else None),
             ('1200 == 1210+1215+1220+1230+1240+1250+1260', lambda c: eq(S('1200', c), nz(*[S(k, c) for k in ('1210','1215','1220','1230','1240','1250','1260')])) if has(S('1200', c)) else None),
             ('1300+1400+1500 == 1700', lambda c: eq(nz(S('1300', c), S('1400', c), S('1500', c)), S('1700', c)) if has(S('1700', c)) else None),
+            # Состав разделов IV и V не проверял НИКТО (ни конвейер, ни свод) — поэтому
+            # пропажа строки «Обязательство по аренде» у 5 документов не валила ни одной
+            # проверки и не запускала эскалацию. Проверка возвращает None, если нет ни
+            # итога, ни единого слагаемого: иначе «нет детализации» стало бы ложным
+            # провалом, а ложный провал покупает эскалацию.
+            ('1400 == 1410+1420+1430+1440+1450', sect('1400', ('1410','1420','1430','1440','1450'))),
+            ('1500 == 1510+1520+1530+1540+1550', sect('1500', ('1510','1520','1530','1540','1550'))),
         ]
     elif form_key == 'income_statement':
         def diff_rule(name, expected_fns, actual_fn):
@@ -573,6 +587,12 @@ BAL_NAMES = {
     'отложенныеналоговыеобязательства': ['1420'],
     'оценочныеобязательства': ['1430', '1540'],
     'прочиеобязательства': ['1450', '1550'],
+    # Полные названия строк формы 0710001. Без них строки остаются БЕЗ КОДА и выпадают из
+    # раздела: у «Простой еды_6мес_2025» пассив расшифрован без колонки кодов, и потерялись
+    # ровно 1450 = 199788 и 1530 = 2335 — тождества разделов IV и V не сходились.
+    'прочиедолгосрочныеобязательства': ['1450'],
+    'прочиекраткосрочныеобязательства': ['1550'],
+    'доходыбудущихпериодов': ['1530'],
     'итогопоразделуiv': ['1400'], 'итогодолгосрочныеобязательства': ['1400'],
     'кредиторскаязадолженность': ['1520'],
     'итогопоразделуv': ['1500'], 'итогократкосрочныеобязательства': ['1500'],
@@ -727,7 +747,7 @@ def _normalize_llm(llm, form_key=None, warnings=None):
     # Дубли кодов сливаются ДО понижения в детей: иначе второй код становится ребёнком,
     # а свод (svod.get_val) и проверки видят только верхний уровень — и строка теряется.
     raw = merge_duplicate_codes(raw, warnings=warnings, form_key=form_key)
-    items, seen = [], set()
+    items, seen, by_code, pending = [], set(), {}, []
     for it in raw:
         code = it.get('code')
         rec = {'code': code, 'name': it.get('name'),
@@ -735,11 +755,22 @@ def _normalize_llm(llm, form_key=None, warnings=None):
                'raw_values': it.get('raw_values', it.get('values')),
                'children': it.get('children', []) or []}
         if code and code in KNOWN_TOP and code not in seen:
-            seen.add(code); items.append(rec)
+            seen.add(code); items.append(rec); by_code[code] = rec
         elif items:
-            items[-1].setdefault('children', []).append(rec)
+            # Код из ПЯТИ цифр — это 4-значный код плюс номер подстроки: документ печатает
+            # «1530» -> «15301/15302/15303», «1520» -> «15208». Такую строку нельзя вешать
+            # на предыдущую попавшуюся: она принадлежит строке-префиксу. У «ИПС_6мес_2025»
+            # модель plusvibe выбросила саму строку 1520, и подстрока «15208» уехала под 1510
+            # — а правила аренды свода (svod.rent_extract) ходят по ВЛОЖЕННЫМ строкам.
+            # Пристраиваем ВТОРЫМ проходом: строка-префикс может стоять и ниже под-кода.
+            if isinstance(code, str) and len(code) == 5 and code[:4] in KNOWN_TOP:
+                pending.append((code[:4], rec, items[-1]))
+            else:
+                items[-1].setdefault('children', []).append(rec)
         else:
             items.append(rec)
+    for prefix, rec, prev in pending:
+        (by_code.get(prefix) or prev).setdefault('children', []).append(rec)
     return items
 
 # ---------------------------------------------------------------- scan branch
