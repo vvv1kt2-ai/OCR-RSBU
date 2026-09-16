@@ -436,6 +436,10 @@ def structure_text_form(doc, pages, form_key):
         st['pending'].append(s)
     flush()
     structure_text_form._started = False
+    # Текстовый разбор отдавал два верхних item с одним кодом, и «побеждал последний»
+    # (val_map перезаписывает). Складываем дубли здесь же, чтобы обе ветки разбора —
+    # текстовая и по ответу модели — давали одинаковый результат.
+    items = merge_duplicate_codes(items, warnings=warnings, form_key=form_key)
     return columns, items, warnings
 
 structure_text_form._started = False
@@ -594,10 +598,130 @@ def _values_count(items):
             n += sum(1 for v in (ch.get('values') or []) if v is not None)
     return n
 
-def _normalize_llm(llm, form_key=None):
+def _rows_repeat(a, b):
+    """Повтор это или отдельная строка отчёта?
+
+    Повтор — когда НЕТ ни одной колонки, где обе строки заполнены РАЗНЫМИ числами:
+    значит, это одна и та же строка, напечатанная или прочитанная дважды. Если такая
+    колонка есть — перед нами две разные строки отчёта с одним кодом."""
+    n = max(len(a or []), len(b or []))
+    for c in range(n):
+        x = a[c] if c < len(a or []) else None
+        y = b[c] if c < len(b or []) else None
+        if x is not None and y is not None and x != y:
+            return False
+    return True
+
+
+def _repeat_vals(a, b):
+    """Повтор: по колонкам берём заполненное (складывать нельзя — значение удвоится)."""
+    n = max(len(a or []), len(b or []))
+    return [(a[c] if c < len(a or []) else None) if (b[c] if c < len(b or []) else None) is None
+            else (b[c] if c < len(b or []) else None) for c in range(n)]
+
+
+def _repeat_raws(a, b):
+    n = max(len(a or []), len(b or []))
+    out = []
+    for c in range(n):
+        x = a[c] if c < len(a or []) else ''
+        y = b[c] if c < len(b or []) else ''
+        out.append(x or y)
+    return out
+
+
+def _sum_vals(a, b):
+    """Разные строки с одним кодом: складываем по колонкам (пустое = 0)."""
+    n = max(len(a or []), len(b or []))
+    out = []
+    for c in range(n):
+        x = a[c] if c < len(a or []) else None
+        y = b[c] if c < len(b or []) else None
+        out.append(y if x is None else (x if y is None else x + y))
+    return out
+
+
+def _sum_raws(a, b):
+    n = max(len(a or []), len(b or []))
+    out = []
+    for c in range(n):
+        x = (a[c] if c < len(a or []) else '') or ''
+        y = (b[c] if c < len(b or []) else '') or ''
+        out.append(f'{x} + {y}' if x and y else (x or y))
+    return out
+
+
+def merge_duplicate_codes(items, warnings=None, form_key=None):
+    """Один 4-значный код на верхнем уровне ДВАЖДЫ — это две строки отчёта, их складывают.
+
+    Отчёт печатает один код дважды: у «Моторные технологии_6мес_2025» 1250 стоит как
+    «Денежные средства и денежные эквиваленты» (4 070) и как «Депозитные счета» (14 500).
+    Прежний разбор молча оставлял одну строку из двух — текстовый последнюю, разбор ответа
+    модели первую, — и остаток раздела не сходился (14 500 в кол.0, 87 800 в кол.1).
+    Что складывать, решает АРИФМЕТИКА раздела, а не вид строки: из четырёх случаев, где
+    тождество раздела вообще различает варианты, во всех четырёх верна сумма и ни в одном
+    не верна одиночная строка (замер: _dup_арифметика.py, КИФА/Корпсан/Проект 111/Смартфакт).
+
+    Но дубль бывает и НАСТОЯЩИМ повтором: модель иногда повторяет уже напечатанную строку
+    (документированный дефект Polza), а форма повторяет итог на продолжении. Такие строки
+    СЛИВАЮТСЯ, а не складываются, иначе значение удвоилось бы. Признак повтора — нет ни
+    одной колонки с двумя разными заполненными значениями.
+
+    Пустой второй дубль (у «Байсэл»/«Йуми» 1220 = «-») складывается безвредно: пустое
+    считается нулём, значение не меняется.
+    """
+    by_code = {}
+    for it in items or []:
+        c = it.get('code')
+        if c and c in KNOWN_TOP:
+            by_code.setdefault(c, []).append(it)
+    out = []
+    for it in items or []:
+        c = it.get('code')
+        group = by_code.get(c) if c else None
+        if not group or group[0] is not it:
+            if group:
+                continue            # не первый в группе — уже слит в первый
+            out.append(it)
+            continue
+        cur = it
+        for nxt in group[1:]:
+            vals = cur.get('values') or []
+            nvals = nxt.get('values') or []
+            names = [cur.get('name') or '', nxt.get('name') or '']
+            names = [re.sub(r'\s+', ' ', s).strip()[:40] for s in names]
+            if _rows_repeat(vals, nvals):
+                cur['values'] = _repeat_vals(vals, nvals)
+                cur['raw_values'] = _repeat_raws(cur.get('raw_values') or [],
+                                                 nxt.get('raw_values') or [])
+                empty = not any(v is not None for v in nvals)
+                msg = (f'дубль кода {c}: пустой дубль («{names[0]}» / «{names[1]}») — '
+                       f'значение не меняется' if empty else
+                       f'дубль кода {c}: повтор строки («{names[0]}» / «{names[1]}») — '
+                       f'значения слиты, не сложены')
+            else:
+                cur['values'] = _sum_vals(vals, nvals)
+                cur['raw_values'] = _sum_raws(cur.get('raw_values') or [],
+                                              nxt.get('raw_values') or [])
+                msg = (f'дубль кода {c}: сложены значения строк «{names[0]}» и «{names[1]}» '
+                       f'-> {[v for v in cur["values"]]}')
+            # Слитая строка исчезает из верхнего уровня, но её вложенные строки — данные,
+            # поэтому они переезжают к той строке, в которую влились, а не пропадают.
+            if nxt.get('children'):
+                cur.setdefault('children', []).extend(nxt['children'])
+            if warnings is not None:
+                warnings.append(f'{form_key}: {msg}' if form_key else msg)
+        out.append(cur)
+    return out
+
+
+def _normalize_llm(llm, form_key=None, warnings=None):
     """LLM items -> normalized items; duplicate/non-canonical top-level codes become children"""
     raw = llm.get('items', [])
     if form_key == 'balance': _assign_bal_codes(raw)
+    # Дубли кодов сливаются ДО понижения в детей: иначе второй код становится ребёнком,
+    # а свод (svod.get_val) и проверки видят только верхний уровень — и строка теряется.
+    raw = merge_duplicate_codes(raw, warnings=warnings, form_key=form_key)
     items, seen = [], set()
     for it in raw:
         code = it.get('code')
@@ -810,7 +934,7 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
     transcript = '\n\n'.join(parts)
     def _esc_struct(): return llm_structure_form(transcript, form_key, model=M_ESC)[0]
     llm = cached_llm(f'{name}_esc_{form_key}_{model_tag(M_ESC)}', _esc_struct)
-    fresh = _normalize_llm(llm, form_key)
+    fresh = _normalize_llm(llm, form_key, warnings=warnings)
     # --- identity guards: an escalation may only speak about THIS document ---
     ok, why = identity_guard(name, form_key, llm.get('columns') or [])
     print(f'  escalate identity: {"OK" if ok else "REFUSED"} — {why}')
@@ -1409,7 +1533,7 @@ def collect_scan_results(doc, name, transcripts, result):
     for key in ('balance', 'income_statement', 'cash_flow'):
         d = doc_result.get(key)
         if not d: continue
-        items = _normalize_llm(d['llm'], key)
+        items = _normalize_llm(d['llm'], key, warnings=result['warnings'])
         result[key] = {'form': [k for k, v in FORMS.items() if v == key][0],
                        'columns': d['llm'].get('columns', []),
                        'items': items, 'transcript_pages': d['transcript_pages']}
@@ -1468,7 +1592,7 @@ def collect_scan_results(doc, name, transcripts, result):
                      for p in pages_all]
             tag = f"{os.path.splitext(name)[0]}_tstruct_{key}_p{'_'.join(map(str, pages_all))}"
             llm = cached_llm(tag, lambda: llm_structure_form('\n\n'.join(parts), key)[0])
-            items2 = _normalize_llm(llm, key)
+            items2 = _normalize_llm(llm, key, warnings=result['warnings'])
         except Exception as e:
             result['warnings'].append(f'{key}: recovering pages {extra} failed: {e}')
             continue
@@ -1561,7 +1685,7 @@ def process(path):
                 pages_all = form_pages[key] + extra
                 tag = f"{os.path.splitext(name)[0]}_tstruct_{key}_p{'_'.join(map(str, pages_all))}"
                 llm = cached_llm(tag, lambda: llm_structure_form('\n\n'.join(parts), key)[0])
-                items2 = _normalize_llm(llm, key)
+                items2 = _normalize_llm(llm, key, warnings=result['warnings'])
             except Exception as e:
                 result['warnings'].append(f'{key}: recovering pages {extra} failed: {e}')
                 continue
@@ -1586,7 +1710,7 @@ def process(path):
                 tag = f"{os.path.splitext(name)[0]}_tstruct_{key}_p{'_'.join(map(str, form_pages[key]))}"
                 try:
                     llm = cached_llm(tag, lambda: llm_structure_form(txt, key)[0])
-                    items = _normalize_llm(llm, key)
+                    items = _normalize_llm(llm, key, warnings=result['warnings'])
                     # Same gate as the escalation merge, and for the same reason: counting
                     # passing checks cannot see information DISAPPEARING.
                     #
@@ -1640,7 +1764,7 @@ def process(path):
                     txt = '\n\n'.join(f'=== СТРАНИЦА {p} ===\n{doc[p-1].get_text()}' for p in tpages)
                     def _txt_fb(): return llm_structure_form(txt, 'balance')[0]
                     llm = cached_llm(f'{os.path.splitext(name)[0]}_txtfb', _txt_fb)
-                    items = _normalize_llm(llm, 'balance')
+                    items = _normalize_llm(llm, 'balance', warnings=result['warnings'])
                     chks = run_checks('balance', items)
                     if any(v is not None for v in (val_map(items).get('1600') or [])):
                         result['balance'] = {'form': '0710001', 'columns': llm.get('columns', []),

@@ -75,7 +75,7 @@ fake_llm = {'columns': [{'label': 'На 30.06.2025'}, {'label': 'На 31.12.2024
                        'values': [11061647, 2658055, 4905033]}]}
 P.cached_llm = lambda tag, fn: fake_llm
 P.llm_structure_form = lambda *a, **k: (fake_llm, None)
-P._normalize_llm = lambda llm, fk: llm['items']
+P._normalize_llm = lambda llm, fk, warnings=None: llm['items']
 P.identity_guard = lambda *a, **k: (True, 'тест: проверка личности отключена')
 P.sibling_conflicts = lambda *a, **k: []
 
