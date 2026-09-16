@@ -49,6 +49,23 @@ M_MAIN   = ACTIVE_PROFILE.roles['main']
 M_ESC    = ACTIVE_PROFILE.roles['esc']
 PRICES   = ACTIVE_PROFILE.prices
 
+# Разрешение, на котором эскалация перечитывает страницы. Было 300.
+#
+# Решение пользователя 16.09.2026: «оставить, но снизить до 200 dpi». Замер, на котором оно
+# принято, и честная оговорка к нему (_esc_dpi_цена.py, _esc200_опыт.py):
+#   * нативный dpi 90% перечитываемых страниц ниже 300, медиана 150 — рендер 300 dpi их
+#     только интерполирует, новых пикселей данных не добавляет;
+#   * на ТГК-14_6мес_2025 (единственная страница, где правильность решает арифметика) 300 dpi
+#     дал РАЗНЫЕ цифры у двух поставщиков, тогда как 200 dpi — одинаково верные; значит
+#     переменная не разрешение, а неустойчивость чтения;
+#   * ЭКОНОМИИ ОТ СНИЖЕНИЯ НЕТ: у роли esc картинка целой страницы стоит 51 входной токен
+#     при 200 dpi и ровно 51 при 300 dpi, хотя PNG вырос с 2645 до 5295 КБ (в 2 раза).
+#     Цена вызова esc определяется ВЫХОДНЫМИ токенами (медиана 3330), а не картинкой.
+#     Экономия, на которую рассчитывали, — 59% цены пилота — этим изменением НЕ достигается.
+# Что изменение даёт: тело запроса вдвое меньше (504 у esc — частый отказ, 32% 400 и 6.7%
+# 503 по логу поставщика), и потерь качества на замере нет.
+ESC_DPI = 200
+
 def load_key():
     return _providers.load_key(ACTIVE_PROFILE)
 
@@ -947,7 +964,7 @@ def sibling_conflicts(name, form_key, items, columns):
     return out
 
 def escalate_failed_form(doc, form_key, result, warnings, name):
-    """Re-OCR problem pages at 300 dpi with a stronger model, merge, re-check."""
+    """Re-OCR problem pages with a stronger model, merge, re-check. See ESC_DPI."""
     res = result[form_key]
     def codes_from_checks(chks):
         out = set()
@@ -962,10 +979,10 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
         print(f'  escalate: {len(pages)} pages listed, capping to first 8')
         pages = pages[:8]
     if not want or not pages: return
-    print(f'  escalate {form_key}: codes={sorted(want)} pages={pages} -> {M_ESC} @300dpi')
+    print(f'  escalate {form_key}: codes={sorted(want)} pages={pages} -> {M_ESC} @{ESC_DPI}dpi')
     parts = []
     for p in pages:
-        txt = transcribe_cached(doc, p, name=name, dpi=300, model=M_ESC)
+        txt = escalation_transcript(doc, p, name)
         parts.append(f'=== СТРАНИЦА {p} ===\n{txt}')
     transcript = '\n\n'.join(parts)
     def _esc_struct(): return llm_structure_form(transcript, form_key, model=M_ESC)[0]
@@ -1269,6 +1286,46 @@ def transcribe_cached(doc, p, name, dpi=200, model=M_MAIN):
             return txt
     _write_cache(cache, txt)
     return txt
+
+def escalation_transcript(doc, p, name):
+    """Text of a page for escalation: an already-paid esc transcript at ANY dpi, else a fresh
+    render at ESC_DPI.
+
+    Why any dpi, when ESC_DPI was just lowered to 200. On disk there are 103 esc transcripts
+    read at 300 dpi, all paid for. Looking only for the exact ESC_DPI key would make every one
+    of them unreachable, so the same pages would be rendered and read AGAIN at 200 dpi — paying
+    twice for text we already own. And the structuring cache derived from those transcripts
+    (`{name}_esc_{form}_{model}`) has no dpi in its key, so re-reading the same page at another
+    dpi would silently feed a different input to a cache that still answers with the old result.
+
+    Preferring what is already on disk removes both problems at once: an old 300 dpi transcript
+    keeps its structuring cache exactly valid, and only pages never read before are rendered at
+    ESC_DPI. This is the same rule `cached_transcript_path` already follows for non-form pages —
+    refusing a paid transcript to satisfy a dpi preference throws away money.
+
+    No model is called when a transcript exists.
+    """
+    stem = os.path.splitext(name)[0]
+    if not stem or stem != _doc_stem(doc):
+        raise ValueError(
+            f'cache key would not identify the document: name={name!r} '
+            f'but the open PDF is {getattr(doc, "name", None)!r}')
+    tail = f'{model_tag(M_ESC)}{_provider_infix(ACTIVE_PROFILE)}_{doc_fingerprint(doc)}.md'
+    prefix = f'{stem}_p{p}_'
+    hits = {}
+    for f in os.listdir(PAGESDIR):
+        if not (f.startswith(prefix) and f.endswith(tail)):
+            continue
+        dpi_part = f[len(prefix):].split('_', 1)[0]
+        if dpi_part.isdigit():
+            hits[int(dpi_part)] = f
+    if hits:
+        # ESC_DPI first, then the nearest other resolution we happen to own
+        for dpi in sorted(hits, key=lambda d: (d != ESC_DPI, abs(d - ESC_DPI))):
+            print(f'  [cache] эскалация стр.{p}: переиспользую готовый транскрипт '
+                  f'{dpi} dpi (новый рендер не нужен)')
+            return open(os.path.join(PAGESDIR, hits[dpi]), encoding='utf-8').read()
+    return transcribe_cached(doc, p, name=name, dpi=ESC_DPI, model=M_ESC)
 
 def _write_cache(path, text):
     """Write a paid-for result to disk, and never lose it because of the disk.
@@ -1645,7 +1702,7 @@ def collect_scan_results(doc, name, transcripts, result):
         else:
             result['warnings'].append(
                 f'{key}: pages {extra} did not yield {TERMINAL_CODE[key]}')
-    # escalation: failed forms -> re-OCR problem pages at 300 dpi with M_ESC
+    # escalation: failed forms -> re-OCR problem pages at ESC_DPI with M_ESC
     for key in ('balance', 'income_statement', 'cash_flow'):
         if result.get(key) and not all(c['ok'] for c in result['checks'] if c['form'] == key):
             escalate_failed_form(doc, key, result, result['warnings'], name=name)
@@ -1773,7 +1830,7 @@ def process(path):
                         result[key]['structured_by'] = 'llm_fallback'
                 except Exception as e:
                     result['warnings'].append(f'{key}: llm fallback failed: {e}')
-            # sync this form's checks; balance still failing -> 300dpi escalation
+            # sync this form's checks; balance still failing -> ESC_DPI escalation
             chks2 = [dict(form=key, **c) for c in run_checks(key, result[key]['items'])]
             result['checks'] = [c for c in result['checks'] if c['form'] != key] + chks2
             if key == 'balance' and not all(c['ok'] for c in chks2):
