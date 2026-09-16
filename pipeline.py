@@ -332,13 +332,72 @@ def filled_values(items):
                     n += 1
     return n
 
+# Правило-сумма без знаков: «a == b+c+d» либо «a+b == c». По таким невязку можно посчитать
+# точно; правила со знаками («2100 == 2110-2120») сюда не попадают намеренно — приблизительная
+# невязка по ним могла бы дать отказ там, где эскалация права.
+SUM_RULE_RE = re.compile(r'^\s*(\d{4}(?:\s*\+\s*\d{4})*)\s*==\s*(\d{4}(?:\s*\+\s*\d{4})*)\s*$')
+
+def _residual_num(v):
+    """значение ячейки как число или None.
+
+    Нужна, потому что `values` в артефактах и в тестовых входах бывают строками ('' после
+    стирания, '1 234' из текстового разбора). `run_checks` это терпит: его eq() бросает
+    TypeError на строке, а исключение внутри перебора колонок превращается в None. Здесь
+    такого заслона нет, поэтому нечисло честно считается отсутствующим значением.
+    """
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    if isinstance(v, str):
+        s = v.strip().replace('\u00a0', '').replace(' ', '').replace(',', '.')
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    return None
+
+def residual_map(form_key, items):
+    """{(правило, колонка): |итог - сумма слагаемых|} — только там, где считать ЕСТЬ чем.
+
+    Ключ — правило и колонка, а не одно число на форму, ради одной вещи: сравнивать две
+    редакции формы можно лишь по тем клеткам, которые вычислимы В ОБЕИХ. Если эскалация
+    ДОБАВИЛА значения, которых раньше не было, правило из «посчитать нельзя» становится
+    «посчитать можно и не сходится» — и рост невязки тут означает не порчу, а новые данные.
+    Поэтому наружу отдаём карту, а пересечение берёт вызывающий (см. escalation_gate).
+    """
+    m = val_map(items)
+    n = max((len(it['values']) for it in items if it.get('values')), default=0)
+    def cell(code, c):
+        v = m.get(code)
+        return _residual_num(v[c]) if v and c < len(v) else None
+    out = {}
+    for chk in run_checks(form_key, items):
+        mm = SUM_RULE_RE.match(chk.get('rule') or '')
+        if not mm:
+            continue
+        left = re.findall(r'\d{4}', mm.group(1))
+        right = re.findall(r'\d{4}', mm.group(2))
+        for c in range(n):
+            lv = [cell(k, c) for k in left]
+            rv = [cell(k, c) for k in right]
+            if not any(v is not None for v in lv) or not any(v is not None for v in rv):
+                continue
+            out[(chk['rule'], c)] = abs(sum(v for v in lv if v is not None)
+                                        - sum(v for v in rv if v is not None))
+    return out
+
 def escalation_gate(form_key, before, after):
     """May an escalation merge be applied? Returns (accept, reason).
 
     Criteria, in order of severity:
       1. losing the closing total is fatal — the form is no longer a form;
       2. fewer satisfied identities than before — the merge made arithmetic worse;
-      3. fewer filled cells — the merge destroyed information (the case above).
+      3. fewer filled cells — the merge destroyed information (the case above);
+      4. same identities, but on the cells computable in BOTH editions the arithmetic diverges
+         further — a pure rewrite that made the form worse. Neither of the first three sees it:
+         they count checks and cells, and a rule that fails before AND after counts the same
+         whether it is off by 10 or by 6 million.
     Purely a comparison of two item sets, so it is testable without a document or an LLM call.
     """
     if form_is_complete(form_key, before) and not form_is_complete(form_key, after):
@@ -350,6 +409,16 @@ def escalation_gate(form_key, before, after):
     if now_fill < was_fill:
         return False, ('стёрто значений: %d -> %d заполненных ячеек'
                        % (was_fill, now_fill))
+    if now_ok == was_ok:
+        was_r, now_r = residual_map(form_key, before), residual_map(form_key, after)
+        shared = set(was_r) & set(now_r)
+        if shared:
+            a = sum(was_r[k] for k in shared)
+            b = sum(now_r[k] for k in shared)
+            if b > a + 2:
+                return False, ('арифметика разошлась сильнее: невязка %d -> %d '
+                               'по %d клеткам, вычислимым в обеих редакциях'
+                               % (a, b, len(shared)))
     return True, ''
 
 def detect_columns(text):
