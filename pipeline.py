@@ -1362,6 +1362,24 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
         second_opinion = 'second model agrees; document may not reconcile' if confirmed else 'unresolved'
         warnings.append(f'{form_key}: escalation did not fully reconcile ({second_opinion})')
 
+def decide_status(per_form_ok, unread, has_any_form):
+    """'ok' | 'needs_review' | 'no_forms' | 'incomplete' — чистая функция от трёх фактов.
+
+    Вынесена из process(), чтобы правило проходило тест без документа, кэша и вызова модели.
+    Главное, что она фиксирует: «все проверки прошли» НЕ равно «форма прочитана целиком».
+    Если детекция выбрала страницу, а её транскрипта нет (ответ срезан фильтром провайдера),
+    строки этой страницы в форму не попали — и часть таких строк не покрыта ни одним правилом,
+    поэтому проверки молчат. Измерено на «ИПС_6мес_2025»: правило 1500 падало, но status стоял
+    ok, а причина — не потеря строки при разборе, а НЕПРОЧИТАННАЯ страница 4.
+    """
+    if per_form_ok and all(all(v) for v in per_form_ok.values()):
+        return 'incomplete' if unread else 'ok'
+    if per_form_ok:
+        return 'needs_review'
+    if not has_any_form:
+        return 'no_forms'
+    return 'incomplete'
+
 def company_from_file(name):
     """company name from file name: 'ТГК-14_6мес_2025.pdf' -> 'ТГК-14'"""
     base = re.sub(r'_(\d+мес|год)_\d{4}\.pdf$', '', name, flags=re.I)
@@ -1520,7 +1538,27 @@ def nonform_pages_to_keep(doc_result, npages, path_of):
             kept[p] = path
     return kept
 
-def transcribe_cached(doc, p, name, dpi=200, model=M_MAIN):
+def transcript_missing(pages, exists):
+    """Страницы, чей транскрипт ПОСЛЕ оплаченного чтения на диске не появился.
+
+    Зачем отдельная проверка. transcribe_cached при `finish_reason=content_filter` (фильтр
+    провайдера срезал ответ) намеренно НЕ кладёт текст в кэш — иначе неполнота стала бы вечной
+    и бесплатной. Но раньше функция при этом молча возвращала обрезанный текст: форма
+    собиралась из неполной страницы, `form_is_complete` этого не видел (замыкающий код стоит на
+    другой странице), артефакт писал status=ok, и ни одного предупреждения не оставалось.
+    Измерено: «ИПС_6мес_2025» стр. 4 — обрезана ДВАЖДЫ, в кэше её нет, и потерянная строка
+    1520 = 15307 не попала в баланс. Механизм потери 1520, который до сих пор числился
+    неустановленным, — вот он.
+
+    Признак честный, потому что на диске не бывает «половины» транскрипта: файл либо записан
+    целиком, либо не записан вовсе. Поэтому отсутствие файла после чтения = чтение неполно.
+
+    `exists` передаётся снаружи, чтобы решение проверялось без документа, каталога кэша и
+    вызова модели.
+    """
+    return sorted(p for p in pages if not exists(p))
+
+def transcribe_cached(doc, p, name, dpi=200, model=M_MAIN, warnings=None):
     """transcribe one page with disk cache (crash-resilient, free reruns)"""
     cache = page_cache_path(doc, name, p, dpi, model)
     if os.path.exists(cache):
@@ -1551,9 +1589,31 @@ def transcribe_cached(doc, p, name, dpi=200, model=M_MAIN):
             txt, fin = txt2, fin2
             print(f'  [cache] страница {p}: повтор удался (finish={fin2})')
         else:
-            print(f'  [cache] страница {p}: повтор тоже срезан фильтром — отдаю '
-                  f'неполный текст, форму придётся эскалировать')
-            return txt
+            # Третий ход — не повтор с начала, а ПРОДОЛЖЕНИЕ с места обрыва. Повтор с начала
+            # дал тот же срез, потому что модель снова упирается в то же место; продолжение
+            # начинается уже за ним. Ровно так же лечится обрыв по длине (см. fin == 'length').
+            tail = txt[-500:]
+            print(f'  [cache] страница {p}: повтор тоже срезан — прошу продолжение с места обрыва')
+            txt3, fin3 = chat([img_message(render_png(doc[p - 1], min(dpi + 100, 300)),
+                              TRANSCRIBE_PROMPT
+                              + f' (страница {p} файла) Разметка обрывается на этом месте:\n{tail}\n'
+                                f'Продолжи РОВНО с места обрыва, без повторов и без начала заново.')],
+                             model, max_tokens=16000)
+            if fin3 != 'content_filter' and txt3.strip():
+                txt = txt.rstrip() + '\n' + txt3.strip()
+                print(f'  [cache] страница {p}: обрыв закрыт продолжением '
+                      f'({len(txt3)} знаков)')
+            else:
+                # Отдаём то, что есть, — текст уже оплачен. Но молчать об этом нельзя: именно
+                # молчание сделало потерю строки 1520 невидимой. Предупреждение и отсутствие
+                # файла в кэше превращают обрыв в наблюдаемый факт (см. transcript_missing).
+                print(f'  [cache] страница {p}: продолжение тоже срезано — отдаю неполный текст')
+                if warnings is not None:
+                    warnings.append(
+                        f'страница {p}: ответ срезан фильтром провайдера, продолжение не удалось '
+                        f'— строки этой страницы в форме неполны, в кэш не кладу (страница будет '
+                        f'перечитана)')
+                return txt
     _write_cache(cache, txt)
     return txt
 
@@ -1833,9 +1893,26 @@ def scan_pipeline(doc, name, only_pages=None):
     todo = sorted({p for plist in form_pages.values() for p in plist
                    if isinstance(p, int) and 1 <= p <= npages} | set(title_pages))
     with ThreadPoolExecutor(max_workers=4) as ex:
-        list(ex.map(lambda p: transcribe_cached(doc, p, name, dpi=200, model=M_MAIN), todo))
+        list(ex.map(lambda p: transcribe_cached(doc, p, name, dpi=200, model=M_MAIN,
+                                                warnings=warnings), todo))
     for p in title_pages:
-        transcripts[f'title_p{p}'] = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN)
+        transcripts[f'title_p{p}'] = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN,
+                                                       warnings=warnings)
+    # ПОЛНОТА ЧТЕНИЯ. Детекция выбрала страницу, за её чтение заплачено — но транскрипт мог не
+    # появиться: фильтр провайдера срезал ответ и продолжение не удалось. Раньше это не
+    # отражалось нигде (артефакт писал status=ok при неполной форме), и потеря строки 1520 у
+    # «ИПС_6мес_2025» выглядела как загадка разбора. Проверка локальная и бесплатная: она
+    # смотрит только на диск, моделей не зовёт.
+    read_pages = sorted({p for plist in form_pages.values() for p in plist
+                         if isinstance(p, int) and 1 <= p <= npages} | set(title_pages))
+    gaps = transcript_missing(
+        read_pages, lambda q: os.path.exists(page_cache_path(doc, name, q, 200, M_MAIN)))
+    doc_result['_unread_pages'] = gaps
+    if gaps:
+        warnings.append(
+            f'чтение неполно: нет транскрипта для стр. {gaps} — фильтр провайдера срезал ответ, '
+            f'строки этих страниц в форме отсутствуют')
+        print('  pages read INCOMPLETELY (no transcript):', gaps)
     # Pages that are NOT forms are not read as part of a form — but if such a page was read
     # ANYWAY, its text is kept rather than dropped. Page 1 is always read (it carries
     # inn/okpo/unit), and in annual reporting page 1 can be the auditor's report; a page can
@@ -1850,7 +1927,7 @@ def scan_pipeline(doc, name, only_pages=None):
         parts = []
         for p in plist:
             if not isinstance(p, int) or p < 1 or p > npages: continue
-            txt = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN)
+            txt = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN, warnings=warnings)
             parts.append(f'=== СТРАНИЦА {p} ===\n{txt}')
             transcripts[f'{key}_p{p}'] = txt
         if parts:
@@ -1888,6 +1965,14 @@ def collect_scan_results(doc, name, transcripts, result):
     # Происхождение: через месяц нужно понимать, каким поставщиком сделана
     # транскрипция — цены и качество у площадок разные, а имя модели совпадает.
     result['source']['provider'] = ACTIVE_PROFILE.name
+    # Ветвь, которой реально сделаны формы. В скановой ветке страницы читала модель —
+    # тогда provider/ocr_model описывают чтение честно. В ТЕКСТОВОЙ ветке страницы не
+    # читает никто: form-таблицы разобраны из текстового слоя локально, моделей не звали,
+    # файлов кэша страниц не возникает. Измерено по пилоту: 6 из 43 артефактов именно
+    # такие (Афанасий оба года, Бианка премиум_2025, Проект 111_2025, Рекорд трейд_2026,
+    # Сибсульфур_2025) — у них provider=plusvibe и model=ПУСТО, и без метода поле
+    # provider читалось бы как «страницы прочитала модель plusvibe», что ложь.
+    result['source']['method'] = 'scan'
     # page 1 of a scan holds the title page: inn/okpo/unit (name from filename).
     # `title_p1` is the fallback for when detection labelled page 1 as a non-form page.
     rq = company_from_title(transcripts.get('balance_p1') or transcripts.get('title_p1') or '')
@@ -1909,6 +1994,10 @@ def collect_scan_results(doc, name, transcripts, result):
     # is the balance» must never be assumed.
     non_form = doc_result.get('_extra_pages') or {}
     non_form = {k: v for k, v in non_form.items() if v}
+    # Полнота чтения: страницы, выбранные детекцией, для которых транскрипта так и не появилось.
+    # Хук пишется ВСЕГДА (в том числе пустым) — по той же причине, что и non_form_pages:
+    # потребитель должен отличать «таких страниц не было» от «этот прогон не смотрел».
+    result['source']['unread_pages'] = list(doc_result.get('_unread_pages') or [])
     # Always present, even when empty: a consumer of this hook must be able to tell
     # «there were no such pages» from «this run never looked», and an absent key cannot
     # say which. The warning is still only raised when there is something to report.
@@ -1951,7 +2040,8 @@ def collect_scan_results(doc, name, transcripts, result):
         print(f'  {key}: no {TERMINAL_CODE[key]} -> trying pages {extra}')
         try:
             pages_all = used + extra
-            parts = [f'=== СТРАНИЦА {p} ===\n{transcribe_cached(doc, p, name, dpi=200, model=M_MAIN)}'
+            parts = [f'=== СТРАНИЦА {p} ===\n'
+                     f'{transcribe_cached(doc, p, name, dpi=200, model=M_MAIN, warnings=result["warnings"])}'
                      for p in pages_all]
             tag = f"{os.path.splitext(name)[0]}_tstruct_{key}_p{'_'.join(map(str, pages_all))}"
             llm = cached_llm(tag, lambda: llm_structure_form('\n\n'.join(parts), key)[0])
@@ -2024,6 +2114,10 @@ def process(path):
         fp = find_form_pages(doc)
         if want: fp = {k: v for k, v in fp.items() if k in want}
         print('  text-branch form pages:', fp)
+        # В текстовой ветке модели страницы НЕ читали: forms разобраны из слоя локально.
+        # Метод пишем до первых LLM-вызовов — если ниже случится фолбэк на модель, он
+        # перезапишет метод на честное значение.
+        result['source']['method'] = 'text'
         form_pages = {k: list(v) for k, v in fp.items()}
         for key, plist in fp.items():
             columns, items, warns = structure_text_form(doc, plist, key)
@@ -2056,6 +2150,9 @@ def process(path):
                 result[key]['items'] = items2
                 if llm.get('columns'): result[key]['columns'] = llm['columns']
                 result[key]['structured_by'] = 'llm_completion'
+                # Доборные страницы читала модель и структурировала она же — метод честнее
+                # назвать смешанным: большая часть формы из слоя, но модель участвовала.
+                result['source']['method'] = 'text+llm'
                 form_pages[key] = pages_all
                 result['source'].setdefault('pages_used', []).extend(extra)
                 result['warnings'].append(
@@ -2098,6 +2195,9 @@ def process(path):
                         result[key]['items'] = items
                         if llm.get('columns'): result[key]['columns'] = llm['columns']
                         result[key]['structured_by'] = 'llm_fallback'
+                        # Форму собрала модель — фиксируем это в происхождении: поставщик
+                        # в source относится и к этому вызову, а не только к транскрипции.
+                        result['source']['method'] = 'text+llm'
                 except Exception as e:
                     result['warnings'].append(f'{key}: llm fallback failed: {e}')
             # sync this form's checks; balance still failing -> ESC_DPI escalation
@@ -2147,15 +2247,19 @@ def process(path):
     per_form_ok = {}
     for c in result['checks']:
         per_form_ok.setdefault(c['form'], []).append(bool(c.get('ok')))
-    if result['checks'] and all(all(v) for v in per_form_ok.values()):
-        result['status'] = 'ok'
-    elif result['checks']:
-        result['status'] = 'needs_review'
-    elif not any(result.get(k) for k in FORMS):
+    unread = (result.get('source') or {}).get('unread_pages') or []
+    all_ok = bool(per_form_ok) and all(all(v) for v in per_form_ok.values())
+    result['status'] = decide_status(per_form_ok, unread, any(result.get(k) for k in FORMS))
+    if result['status'] == 'no_forms':
         result['warnings'].append('no target forms found in document')
-        result['status'] = 'no_forms'
-    else:
-        result['status'] = 'incomplete'
+    elif all_ok and unread:
+        # «Все проверки прошли» — ещё не «форма прочитана целиком». Если детекция выбрала
+        # страницу, а её транскрипта нет, строки этой страницы в форму не попали; часть таких
+        # строк не покрыта ни одним правилом, поэтому проверки этого не увидят. Форма без
+        # страницы не имеет права называться годной.
+        result['warnings'].append(
+            f'status понижен до incomplete: страницы {unread} не прочитаны полностью, '
+            f'их строки в форме отсутствуют (проверки этого не покрывают)')
     out = os.path.join(OUTDIR, os.path.splitext(name)[0] + '.json')
     json.dump(result, open(out, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
     print(f'  -> {out} status={result["status"]}')

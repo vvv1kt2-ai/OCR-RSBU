@@ -639,6 +639,72 @@ check('и отказ дешёвого хода возвращает управл
           'if repair_from_transcript(')[1].split('\n')[1],
       _esc_src.split('if repair_from_transcript(')[1].split('\n')[1][:70])
 
+print('\n=== 13. полнота чтения страниц: обрыв фильтром провайдера ===')
+# Механизм, найденный 16.09.2026 и до этого числившийся неустановленным. transcribe_cached при
+# finish_reason=content_filter НЕ кладёт текст в кэш (иначе неполнота стала бы вечной), но
+# возвращала обрезанный текст МОЛЧА: форма собиралась из неполной страницы, form_is_complete
+# этого не видел (замыкающий код на другой странице), артефакт писал status=ok. Измерено:
+# «ИПС_6мес_2025» стр. 4 обрезана дважды, в кэше её нет, и строка 1520 = 15307 не попала в
+# баланс — то есть потеря строки объясняется непрочитанной страницей, а не разбором.
+
+# Признак честный: на диске не бывает половины транскрипта.
+check('страницы без файла в кэше распознаются как непрочитанные',
+      P.transcript_missing([1, 2, 3, 4, 5], lambda q: q != 4) == [4],
+      str(P.transcript_missing([1, 2, 3, 4, 5], lambda q: q != 4)))
+check('когда прочитано всё — пусто',
+      P.transcript_missing([1, 2, 3], lambda q: True) == [])
+check('когда не прочитано ничего — перечислены все',
+      P.transcript_missing([2, 3], lambda q: False) == [2, 3])
+
+# Статус: «все проверки прошли» не равно «форма прочитана целиком».
+check('все проверки прошли и всё прочитано -> ok',
+      P.decide_status({'balance': [True, True]}, [], True) == 'ok')
+check('все проверки прошли, но страница не прочитана -> incomplete',
+      P.decide_status({'balance': [True, True]}, [4], True) == 'incomplete',
+      P.decide_status({'balance': [True, True]}, [4], True))
+check('провал проверки -> needs_review даже при непрочитанной странице',
+      P.decide_status({'balance': [True, False]}, [4], True) == 'needs_review')
+check('проверок нет, формы есть -> incomplete',
+      P.decide_status({}, [], True) == 'incomplete')
+check('проверок нет и форм нет -> no_forms',
+      P.decide_status({}, [], False) == 'no_forms')
+
+# В артефакт хук пишется ВСЕГДА, в том числе пустым: потребитель должен отличать «таких
+# страниц не было» от «этот прогон не смотрел».
+_src2 = io.open(r'D:\models\pipeline.py', encoding='utf-8').read()
+check('непрочитанные страницы пишутся в source.unread_pages',
+      "result['source']['unread_pages']" in _src2)
+check('и пустой список тоже пишется (не пропускается условием)',
+      "or [])" in _src2[_src2.index("result['source']['unread_pages']"):
+                       _src2.index("result['source']['unread_pages']") + 120])
+# Восстановление обрыва: третий ход — продолжение с места обрыва, а не повтор с начала.
+_tc = _src2[_src2.index('def transcribe_cached'):]
+_tc = _tc[:_tc.index('\ndef ', 10)]
+check('после двух срезов просится ПРОДОЛЖЕНИЕ с места обрыва',
+      'Продолжи РОВНО с места обрыва' in _tc and 'tail = txt[-500:]' in _tc)
+check('и обрыв попадает в предупреждения, а не только в печать',
+      "warnings.append(" in _tc[_tc.index('Продолжи РОВНО с места обрыва'):])
+check('неполный текст по-прежнему не кэшируется',
+      'return txt' in _tc[_tc.index('Продолжи РОВНО с места обрыва'):]
+      and '_write_cache(cache, txt)' in _tc)
+
+# Проводка в scan_pipeline: после чтения всех выбранных страниц проверяется диск.
+_sp = _src2[_src2.index('def scan_pipeline'):]
+_sp = _sp[:_sp.index('\ndef ', 10)]
+check('scan_pipeline считает пробелы чтения через transcript_missing',
+      'transcript_missing(' in _sp and 'page_cache_path' in _sp)
+check('пробел попадает и в предупреждения, и в doc_result',
+      "'_unread_pages'" in _sp and 'чтение неполно' in _sp)
+
+# Происхождение: у текстовой ветки страницы модель не читала — method это фиксирует.
+check('скановая ветка помечает method=scan',
+      "result['source']['method'] = 'scan'" in _src2)
+_pr = _src2[_src2.index("result['source']['method'] = 'text'") - 200:
+            _src2.index("result['source']['method'] = 'text'") + 400]
+check('текстовая ветка помечает method=text, фолбэк — text+llm',
+      "result['source']['method'] = 'text'" in _src2
+      and "result['source']['method'] = 'text+llm'" in _src2)
+
 print(f'\n=== ИТОГ: {ok} успешно, {fail} провалено ===')
 LOG.write(f'\n=== ИТОГ: {ok} успешно, {fail} провалено ===\n')
 LOG.close()
