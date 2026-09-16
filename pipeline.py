@@ -684,7 +684,12 @@ def merge_duplicate_codes(items, warnings=None, form_key=None):
                 continue            # не первый в группе — уже слит в первый
             out.append(it)
             continue
-        cur = it
+        # Копия, а не сам item: функция НЕ должна менять вход. Иначе вызывающий, который
+        # держит те же словари (артефакт, кэш ответа модели, повторный замер), видит
+        # подменённые значения — на этом уже обожглись: замер правил IV и V, прогнав
+        # первое правило, испортил вход для второго и выдал ложные «17 документов».
+        cur = dict(it)
+        cur['children'] = list(it.get('children') or [])
         for nxt in group[1:]:
             vals = cur.get('values') or []
             nvals = nxt.get('values') or []
@@ -708,7 +713,7 @@ def merge_duplicate_codes(items, warnings=None, form_key=None):
             # Слитая строка исчезает из верхнего уровня, но её вложенные строки — данные,
             # поэтому они переезжают к той строке, в которую влились, а не пропадают.
             if nxt.get('children'):
-                cur.setdefault('children', []).extend(nxt['children'])
+                cur['children'].extend(nxt['children'])
             if warnings is not None:
                 warnings.append(f'{form_key}: {msg}' if form_key else msg)
         out.append(cur)
