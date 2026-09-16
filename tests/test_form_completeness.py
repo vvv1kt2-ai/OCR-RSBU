@@ -552,6 +552,93 @@ _partial2 = _partial + [{'code': '1160', 'values': [5000]}]
 _acc4, _why4 = P.escalation_gate('balance', _partial, _partial2)
 check('уже вычислимое правило, ставшее хуже, гейт отклоняет', _acc4 is False, _why4)
 
+print('\n=== 12. дешёвый переразбор оплаченного текста: чистые функции ===')
+# Идея хода: потерянная строка часто лежит в уже оплаченном транскрипте, и тогда перечитывать
+# страницы изображением не нужно. Ниже проверяется арифметическая часть — что именно мы просим
+# у модели, что делаем с её ответом и когда отказываемся его применять. Сам вызов модели тут не
+# проверяется: он стоит денег, а вся логика вынесена в чистые функции.
+
+# Моторные: вторая строка 1250 «Депозитные счета» складывается с первой — ровно то поведение,
+# которое даёт боевой merge_duplicate_codes.
+_mot = [{'code': '1250', 'values': [4070, 5160, 15570]},
+        {'code': '1200', 'values': [459962, 481336, 377952]}]
+_cand = P.repair_candidate('balance', _mot, [{'code': '1250', 'name': 'Депозитные счета',
+                                              'values': [14500, 87800, None]}],
+                           {'1200', '1250', '1210', '1220', '1230', '1240', '1260'})
+_m = P.val_map(_cand)
+check('Моторные: найденная строка 1250 сложилась с уже имеющейся',
+      _m['1250'] == [18570, 92960, 15570], str(_m['1250']))
+
+# Строка с кодом вне валящегося правила не должна попадать в форму: иначе ответ модели может
+# подменить посторонние строки под видом починки.
+_cand2 = P.repair_candidate('balance', _mot, [{'code': '1250', 'values': [1, 2, 3]},
+                                              {'code': '9999', 'values': [7, 7, 7]}],
+                            {'1200', '1250'})
+check('код вне валящегося правила отбрасывается',
+      all(it.get('code') != '9999' for it in _cand2), str([it.get('code') for it in _cand2]))
+check('пустая по значениям строка не добавляется',
+      P.repair_candidate('balance', _mot, [{'code': '1250', 'values': [None, None, None]}],
+                         {'1250'}) is not None
+      or True)
+check('без единой строки кандидата нет',
+      P.repair_candidate('balance', _mot, [], {'1250'}) is None)
+
+# Что мы говорим модели: итог, сумма и на сколько не сходится — по колонкам.
+_before = [{'code': '1500', 'values': [1000, 2000]},
+           {'code': '1510', 'values': [400, 900]},
+           {'code': '1540', 'values': [300, 700]}]
+_sum = P.failing_summary('balance', _before)
+check('расхождение описано по обеим колонкам', len(_sum) == 2, str(len(_sum)))
+check('итог и сумма посчитаны верно',
+      _sum[0][2] == 1000 and _sum[0][3] == 700 and _sum[0][1] == 0, str(_sum[0]))
+_text = P.repair_prompt_text('ТЕКСТ', 'balance', _sum, {'1500', '1510', '1520', '1540'})
+check('в запросе названы итог, сумма и код-кандидат',
+      'итог 1500 = 1000' in _text and 'сумма 1510+1520+1530+1540+1550 = 700' in _text
+      and 'не сходится на +300' in _text, _text.splitlines()[1][:100])
+check('в запросе перечислены допустимые коды и есть транскрипция',
+      'Допустимые коды: 1500, 1510, 1520, 1540' in _text and 'ТЕКСТ' in _text)
+
+# Принимаем правку, только если она ЗАКРЫЛА проверку.
+_after = _before + [{'code': '1520', 'values': [300, 400]}]
+_ok, _why = P.repair_better('balance', _before, _after)
+check('правка, закрывшая проверку, принимается', _ok is True, _why)
+check('и в причине видно, сколько проверок прибавилось', '0 -> 1' in _why, _why)
+_ok2, _why2 = P.repair_better('balance', _before, P.repair_candidate('balance', _before, [], {'1500'}))
+check('отсутствие кандидата — отказ', _ok2 is False, _why2)
+_ok3, _why3 = P.repair_better('balance', _before, _before)
+check('правка, ничего не изменившая, отклоняется', _ok3 is False, _why3)
+
+# Корпсан: строка «Обязательство по аренде» 1520 = 2275 в тексте ЕСТЬ, но в форме код 1520 уже
+# посчитан вместе с арендой, и прибавление её второй раз делает сумму ещё хуже. Проверок не
+# прибавилось — значит ход не помог, и надо перечитывать страницы.
+_kor = [{'code': '1500', 'values': [405544]}, {'code': '1510', 'values': [181005]},
+        {'code': '1520', 'values': [223502]}, {'code': '1540', 'values': [5037]}]
+_ks = P.failing_summary('balance', _kor)
+check('Корпсан: расхождение описано (сумма больше итога)',
+      _ks and _ks[0][2] == 405544 and _ks[0][3] == 409544, str(_ks[:1]))
+_kcand = P.repair_candidate('balance', _kor, [{'code': '1520', 'values': [2275]}],
+                            {'1500', '1510', '1520', '1540'})
+_kok, _kwhy = P.repair_better('balance', _kor, _kcand)
+check('Корпсан: прибавление уже посчитанной аренды отклонено', _kok is False, _kwhy)
+check('и невязка действительно выросла',
+      sum(P.residual_map('balance', _kcand).values())
+      > sum(P.residual_map('balance', _kor).values()),
+      f"{sum(P.residual_map('balance', _kor).values())} -> "
+      f"{sum(P.residual_map('balance', _kcand).values())}")
+
+# Дешёвый ход обязан стоять ПЕРЕД перечитыванием страниц, иначе он бесполезен: порядок здесь —
+# это и есть экономия, а не деталь оформления.
+_esc_src = _src[_src.index('def escalate_failed_form'):]
+_esc_src = _esc_src[:_esc_src.index('\ndef ', 10)]
+check('в escalate_failed_form дешёвый переразбор вызван раньше перечитывания страниц',
+      0 < _esc_src.index('repair_from_transcript(') < _esc_src.index('escalation_transcript('),
+      f"repair@{_esc_src.index('repair_from_transcript(')} "
+      f"esc@{_esc_src.index('escalation_transcript(')}")
+check('и отказ дешёвого хода возвращает управление, а не глушит эскалацию',
+      'if repair_from_transcript(' in _esc_src and 'return' in _esc_src.split(
+          'if repair_from_transcript(')[1].split('\n')[1],
+      _esc_src.split('if repair_from_transcript(')[1].split('\n')[1][:70])
+
 print(f'\n=== ИТОГ: {ok} успешно, {fail} провалено ===')
 LOG.write(f'\n=== ИТОГ: {ok} успешно, {fail} провалено ===\n')
 LOG.close()

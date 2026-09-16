@@ -629,10 +629,12 @@ SCHEMA_HINT = '''Верни СТРОГО JSON без пояснений по с�
 разделители тысяч игнорируй. Каждая строка таблицы = один элемент items в порядке следования.
 Строки "в том числе" -> в children предыдущего элемента. НЕ выдумывай значения.'''
 
+FORM_TITLES = {'balance': 'Бухгалтерский баланс (0710001)',
+               'income_statement': 'Отчет о финансовых результатах (0710002)',
+               'cash_flow': 'Отчет о движении денежных средств (0710005)'}
+
 def llm_structure_form(transcript, form_key, model=None):
-    fname = {'balance': 'Бухгалтерский баланс (0710001)',
-             'income_statement': 'Отчет о финансовых результатах (0710002)',
-             'cash_flow': 'Отчет о движении денежных средств (0710005)'}[form_key]
+    fname = FORM_TITLES[form_key]
     prompt = (f'Ниже транскрипция страниц отчетности: {fname}.\n'
               f'Структурируй в JSON. {SCHEMA_HINT}\n\nТРАНСКРИПЦИЯ:\n{transcript}')
     def _call():
@@ -1032,6 +1034,200 @@ def sibling_conflicts(name, form_key, items, columns):
                         'this_file': a[ia], 'other_file': b[ib]})
     return out
 
+# ---------------------------------------------------------------- cheap repair before escalation
+REPAIR_MAX_TOKENS = 1500
+
+def failing_summary(form_key, items):
+    """[(правило, колонка, итог, сумма)] по правилам-суммам, где расхождение больше допуска.
+
+    Это то, что видит человек, глядя на несходящуюся форму, и то, что нужно сказать модели
+    при дешёвом переразборе: не «структурируй всё заново», а «вот итог, вот сумма слагаемых,
+    найди строку, которой не хватает». Считается по уже разобранной форме, вызовов не требует.
+    """
+    m = val_map(items)
+    n = max((len(it['values']) for it in items if it.get('values')), default=0)
+    def cell(code, c):
+        v = m.get(code)
+        return _residual_num(v[c]) if v and c < len(v) else None
+    out = []
+    for chk in run_checks(form_key, items):
+        mm = SUM_RULE_RE.match(chk.get('rule') or '')
+        if not mm:
+            continue
+        left = re.findall(r'\d{4}', mm.group(1))
+        right = re.findall(r'\d{4}', mm.group(2))
+        for c, flag in enumerate(chk.get('per_column') or []):
+            if flag is not False:
+                continue
+            lv = [cell(k, c) for k in left]
+            rv = [cell(k, c) for k in right]
+            if not any(v is not None for v in lv) or not any(v is not None for v in rv):
+                continue
+            ls = sum(v for v in lv if v is not None)
+            rs = sum(v for v in rv if v is not None)
+            out.append((chk['rule'], c, ls, rs, left, right))
+    return out
+
+def repair_prompt_text(transcript, form_key, summary, want):
+    """запрос на переразбор: найти ТОЛЬКО недостающие строки, а не переписать форму."""
+    lines = []
+    for rule, c, ls, rs, left, right in summary:
+        lines.append(f'  колонка {c + 1}: итог {"+".join(left)} = {ls}, '
+                     f'сумма {"+".join(right)} = {rs}, не сходится на {ls - rs:+}')
+    return (f'Ниже транскрипция страниц отчетности: {FORM_TITLES[form_key]}.\n'
+            f'Разобранная форма НЕ СХОДИТСЯ сама с собой:\n' + '\n'.join(lines) + '\n\n'
+            f'Значит в транскрипции есть строки, которые при разборе потерялись. '
+            f'Найди ТОЛЬКО те строки, которые объясняют расхождение. '
+            f'Не пересказывай таблицу и не выдумывай значения: если такой строки в тексте '
+            f'нет, верни пустой список.\n'
+            f'Допустимые коды: {", ".join(sorted(want))}.\n'
+            f'Ответ СТРОГО JSON: {{"missing": [{{"code": "1520", "name": "...", '
+            f'"values": [v1, v2, ...]}}]}}\n\nТРАНСКРИПЦИЯ:\n{transcript}')
+
+def repair_candidate(form_key, items, rows, want):
+    """собрать кандидата: добавить найденные строки к форме и слить дубли.
+
+    Строки с кодом вне `want` отбрасываются: чинить форму разрешено только по тому правилу,
+    которое валится, иначе ответ модели может подменить посторонние строки. Дубли сливаются
+    тем же самым кодом, что и при обычном разборе, поэтому «строка с тем же кодом, но другим
+    назначением» (депозитные счета внутри 1250) ведёт себя как в бою, а не как здесь.
+    """
+    n = max((len(it['values']) for it in items if it.get('values')), default=0)
+    add = []
+    for row in rows or []:
+        code = re.sub(r'\D', '', str(row.get('code') or ''))
+        if code not in want:
+            continue
+        vals = list(row.get('values') or [])
+        vals = [_residual_num(v) for v in vals][:n]
+        vals = vals + [None] * (n - len(vals))
+        if not any(v is not None for v in vals):
+            continue
+        add.append({'code': code, 'name': row.get('name') or '',
+                    'values': vals, 'raw_values': [''] * n})
+    if not add:
+        return None
+    cand = [dict(it) for it in items] + add
+    return merge_duplicate_codes(cand, [], form_key)
+
+def repair_better(form_key, before, after):
+    """Принимать ли дешёвую правку. (ok, why).
+
+    Правка принимается, только если она ЗАКРЫЛА хотя бы одну проверку — иначе она ничего не
+    дала, и незачем отказываться от перечитывания страниц ради неё. Плюс общий гейт: он
+    поймает случай, когда найденная строка попала в код, где значение уже посчитано, и сумма
+    от неё только разошлась сильнее.
+    """
+    if after is None:
+        return False, 'ничего не найдено'
+    was, now = n_checks_ok(form_key, before), n_checks_ok(form_key, after)
+    if now <= was:
+        return False, f'проверок не прибавилось ({was} -> {now})'
+    ok, why = escalation_gate(form_key, before, after)
+    if not ok:
+        return False, why
+    return True, f'проверок {was} -> {now}'
+
+def repair_from_transcript(doc, form_key, res, result, want, warnings, name):
+    """Первый и дешёвый ход на провале проверки: переразбор УЖЕ ОПЛАЧЕННОГО текста.
+
+    Зачем. Эскалация на провале перечитывает страницы ИЗОБРАЖЕНИЕМ — дорогая модель, вывод
+    в тысячи токенов. Но потерянная строка очень часто лежит в транскрипте, который уже
+    оплачен: измерено на пилоте, у 5 из 9 остаточных провалов нужная строка есть в тексте
+    (ИПС_6мес_2025, Моторные, Органик парк, Эфферон, Корпсан). Значит перечитывать нечего —
+    нужно переразобрать то, что есть.
+
+    Измерено (`_опыт_переразбор.py`): переразбор с подсказкой о расхождении вернул верную
+    строку 3 раза из 3 и стоил 0.09-0.20 ₽ против единиц рублей за эскалацию. Контроль на
+    выдумывание: со строкой, вырезанной из текста, модель вернула пустой список.
+
+    Всё, кроме одного вызова, чистое и проверяется тестами. Возвращает True, если форму
+    удалось починить, — тогда перечитывание страниц НЕ делается.
+    """
+    pages = res.get('transcript_pages') or []
+    texts = []
+    for p in pages:
+        path = cached_transcript_path(doc, name, p)
+        if not path:
+            # страница не оплачена — судить о том, потеряна строка или её нет, нельзя
+            print(f'  repair: стр.{p} нет в оплаченном кэше — дешёвый ход пропущен')
+            return False
+        texts.append((p, open(path, encoding='utf-8').read()))
+    if not texts:
+        return False
+    summary = failing_summary(form_key, res['items'])
+    if not summary:
+        return False
+    transcript = '\n\n'.join(f'=== СТРАНИЦА {p} ===\n{t}' for p, t in texts)
+    prompt = repair_prompt_text(transcript, form_key, summary, want)
+    stem = os.path.splitext(name)[0]
+    # метка кэша следует за ТЕКСТОМ запроса: правка подсказки должна быть видна, иначе кэш
+    # вернёт ответ на другой вопрос (ровно этот дефект уже был у подсказки детекции)
+    tag = f'{stem}_rep_{form_key}_{model_tag(M_MAIN)}_{hashlib.sha1(prompt.encode("utf-8")).hexdigest()[:8]}'
+    obj = cached_llm(tag, lambda: _call_repair(prompt))
+    rows = (obj or {}).get('missing') or []
+    print(f'  repair {form_key}: дешёвый переразбор вернул строк {len(rows)}')
+    if not rows:
+        warnings.append(f'{form_key}: дешёвый переразбор оплаченного текста строк не нашёл — '
+                        f'перехожу к перечитыванию страниц')
+        return False
+    # значения обязаны быть в том самом тексте, который мы послали: модель не должна считать
+    flat = re.sub(r'(?<=\d)[\s\u00a0](?=\d)', '', transcript)
+    unsupported = []
+    for row in rows:
+        for v in (row.get('values') or []):
+            if v is None:
+                continue
+            digits = re.sub(r'\D', '', str(v))
+            if digits and digits not in flat:
+                unsupported.append((row.get('code'), v))
+    if unsupported:
+        shown = '; '.join(f'{c}={v}' for c, v in unsupported[:4])
+        print(f'  repair {form_key}: значений нет в её же тексте ({shown}) — не применяю')
+        warnings.append(f'{form_key}: дешёвый переразбор предложил значения, которых нет в '
+                        f'его же тексте ({shown}) — не применены')
+        return False
+    before = copy.deepcopy(res['items'])
+    cand = repair_candidate(form_key, before, rows, want)
+    ok, why = repair_better(form_key, before, cand)
+    print(f'  repair {form_key}: {"ПРИНЯТ" if ok else "ОТКЛОНЁН"} — {why}'
+          + ('' if ok else ' — перечитываю страницы'))
+    if not ok:
+        warnings.append(f'{form_key}: дешёвый переразбор не помог ({why}) — '
+                        f'перехожу к перечитыванию страниц')
+        return False
+    # след правки: что было до неё и кто её сделал. Как у эскалации, иначе значения изменятся
+    # без следов и разбираться в них потом будет нечем.
+    was = {it.get('code'): list(it.get('values') or []) for it in before}
+    touched = 0
+    for it in cand:
+        code = it.get('code')
+        if code not in want:
+            continue
+        old = was.get(code)
+        if old == list(it.get('values') or []):
+            continue
+        if old is not None:
+            it['values_ocr1'] = old
+        it['corrected_by'] = M_MAIN
+        touched += 1
+    res['items'] = cand
+    print(f'  repair {form_key}: строк изменено {touched}')
+    res['checks'] = [dict(form=form_key, **c) for c in run_checks(form_key, res['items'])]
+    result['checks'] = [c for c in result['checks'] if c['form'] != form_key] + res['checks']
+    warnings.append(f'{form_key}: починено дешёвым переразбором оплаченного текста ({why}), '
+                    f'страницы заново не перечитывались')
+    if all(c['ok'] for c in res['checks']):
+        warnings.append(f'{form_key}: fixed by cheap re-parse ({model_tag(M_MAIN)})')
+    return True
+
+def _call_repair(prompt):
+    txt, fin = chat([{'role': 'user', 'content': prompt}], M_MAIN,
+                    temperature=0, max_tokens=REPAIR_MAX_TOKENS)
+    if fin == 'length':
+        raise ValueError('cheap re-parse truncated (finish=length)')
+    return extract_json(txt)
+
 def escalate_failed_form(doc, form_key, result, warnings, name):
     """Re-OCR problem pages with a stronger model, merge, re-check. See ESC_DPI."""
     res = result[form_key]
@@ -1048,6 +1244,11 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
         print(f'  escalate: {len(pages)} pages listed, capping to first 8')
         pages = pages[:8]
     if not want or not pages: return
+    # Сначала ДЕШЁВЫЙ ход: потерянная строка очень часто лежит в уже оплаченном транскрипте,
+    # и тогда перечитывать страницы изображением не нужно (измерено: 3 из 3 верно за 0.09-0.20 ₽
+    # против единиц рублей). Перечитывание остаётся запасным ходом, а не первым.
+    if repair_from_transcript(doc, form_key, res, result, want, warnings, name):
+        return
     print(f'  escalate {form_key}: codes={sorted(want)} pages={pages} -> {M_ESC} @{ESC_DPI}dpi')
     parts = []
     for p in pages:
