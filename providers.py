@@ -17,7 +17,7 @@ PlusVibe: это выбранный поставщик целевых прого
 в двенадцать раз, поэтому молчаливый уход на Polza — это не «безопасный откат», а
 двенадцатикратный перерасход. Вернуться на Polza стоит одной переменной.
 """
-import io, os, re, json, hashlib, warnings
+import io, os, re, json, hashlib, warnings, datetime
 
 CRED = r'C:\Users\1\.dsh\.credentials.yaml'
 PROFILES_JSON = os.environ.get('PILOT_PROFILES', r'D:\models\providers.json')
@@ -42,11 +42,18 @@ class UnknownModel(Warning):
     """Модель, которой нет в таблице цен профиля."""
 
 
+# Сколько дней таблица цен считается свежей. Прайс поставщика меняется постоянно, а вместе
+# с ним и варианты адресов: 17.11.2026 базовый claude-sonnet-5 отдавал Cxc за 24.64/123.2,
+# 24.11.2026 — Sub5max за 87/432. Таблица, снятая месяц назад, занижает отчёт о стоимости
+# в разы, и заметить это по самому отчёту нельзя.
+PRICE_MAX_AGE_DAYS = 14
+
+
 class Profile(object):
     """Поставщик целиком: куда обращаться, чем платить, какие модели за что отвечают."""
 
     def __init__(self, name, chat_url, key_name, roles, prices,
-                 cache_tag='', cost_header=None, note='', reasoning=None):
+                 cache_tag='', cost_header=None, note='', reasoning=None, prices_as_of=None):
         self.name = name
         self.chat_url = chat_url
         self.key_name = key_name
@@ -56,6 +63,35 @@ class Profile(object):
         self.cost_header = cost_header
         self.note = note
         self.reasoning = dict(reasoning or {})
+        self.prices_as_of = prices_as_of
+
+    # ---- свежесть цен -----------------------------------------------------
+    def price_age_days(self, today=None):
+        """Сколько дней прошло с даты снятия цен. None — дата не записана или битая."""
+        if not self.prices_as_of:
+            return None
+        try:
+            d = datetime.date.fromisoformat(str(self.prices_as_of))
+        except ValueError:
+            return None
+        return ((today or datetime.date.today()) - d).days
+
+    def price_staleness(self, today=None, max_age=PRICE_MAX_AGE_DAYS):
+        """Сообщение «цены устарели» или None, если таблица свежая.
+
+        Проверка не падает и не блокирует прогон: цены нужны для отчёта о стоимости, а не
+        для чтения документов, и останавливать из-за них работу неправильно. Но сказать
+        громко надо — иначе заниженная стоимость выглядит как факт.
+        """
+        age = self.price_age_days(today)
+        if age is None:
+            return (f'дата снятия цен не записана (prices_as_of) — перед прогоном сверьте '
+                    f'таблицу цен профиля {self.name!r} с прайсом поставщика')
+        if age > max_age:
+            return (f'цены профиля {self.name!r} сняты {self.prices_as_of} — {age} дн. назад '
+                    f'(порог {max_age}). Модели, варианты адресов и цены меняются быстро: '
+                    f'обновите таблицу по свежему прайсу, иначе отчёт о стоимости занижен')
+        return None
 
     # ---- роли -------------------------------------------------------------
     def address(self, role):
@@ -170,7 +206,8 @@ def load_profiles(path=None):
             cache_tag=spec.get('cache_tag') or '',
             cost_header=spec.get('cost_header'),
             note=spec.get('note') or '',
-            reasoning=spec.get('reasoning') or {})
+            reasoning=spec.get('reasoning') or {},
+            prices_as_of=spec.get('prices_as_of'))
     return out
 
 

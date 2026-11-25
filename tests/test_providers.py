@@ -253,6 +253,30 @@ check('настройка не попадает в метку кэша: режи
       _quiet.cache_suffix() == _loud.cache_suffix() == 'pv',
       (_quiet.cache_suffix(), _loud.cache_suffix()))
 
+# ─── свежесть таблицы цен ───
+# Прайс меняется постоянно, вместе с ним и варианты адресов: 17.11.2026 базовый
+# claude-sonnet-5 стоил 24.64/123.2, 24.11.2026 — 87/432. Таблица, снятая месяц назад,
+# занижает отчёт о стоимости, и по самому отчёту это не видно.
+import datetime as _dt
+_p = PR.Profile('тест', '', '', {'main': 'm'}, {'m': (1.0, 2.0)}, prices_as_of='2026-11-24')
+check('свежесть: возраст считается от даты снятия',
+      _p.price_age_days(_dt.date(2026, 12, 4)) == 10,
+      _p.price_age_days(_dt.date(2026, 12, 4)))
+check('свежесть: свежая таблица молчит',
+      _p.price_staleness(_dt.date(2026, 11, 30), max_age=14) is None,
+      _p.price_staleness(_dt.date(2026, 11, 30), max_age=14))
+check('свежесть: старая таблица предупреждает',
+      'обновите таблицу' in (_p.price_staleness(_dt.date(2026, 12, 20), max_age=14) or ''),
+      _p.price_staleness(_dt.date(2026, 12, 20), max_age=14))
+check('свежесть: без даты — тоже предупреждение',
+      'не записана' in (PR.Profile('тест', '', '', {}, {}).price_staleness() or ''))
+check('свежесть: битая дата не падает',
+      PR.Profile('тест', '', '', {}, {}, prices_as_of='24.11.2026').price_age_days() is None)
+check('свежесть: в рабочем providers.json дата записана',
+      PR.active().price_age_days() is not None, PR.active().prices_as_of)
+check('свежесть: рабочая таблица сейчас свежая',
+      PR.active().price_staleness() is None, PR.active().price_staleness())
+
 print()
 print('пройдено %d, провалено %d' % (len(PASS), len(FAIL)))
 if FAIL:
