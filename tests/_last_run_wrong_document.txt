@@ -1,4 +1,4 @@
-=== сборка свода во временном каталоге C:\Users\1\AppData\Local\Temp\wrongdoc_2dm_bcfj ===
+=== сборка свода во временном каталоге C:\Users\1\AppData\Local\Temp\wrongdoc_sk4j98f6 ===
 
 === 1. первая страница — «Пояснения к…» ===
   OK   Пояснения есть в своде
