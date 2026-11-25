@@ -11,7 +11,6 @@ import pymupdf
 DOWNLOADS = r'D:\data-scraping\downloads'
 OUTDIR    = os.environ.get('PILOT_OUTDIR', r'D:\models\extracted')
 PAGESDIR  = os.path.join(OUTDIR, 'pages')
-CRED      = r'C:\Users\1\.dsh\.credentials.yaml'
 BASE      = 'https://polza.ai/api/v1/chat/completions'
 
 # model -> (prompt RUB/1M, completion RUB/1M)  from polza catalog 2026-07
@@ -31,6 +30,12 @@ USAGE = {'calls': 0, 'prompt': 0, 'completion': 0, 'cost_rub': 0.0}
 # Три роли моделей остаются теми же именами (внешние скрипты и тесты их импортируют),
 # но их значения теперь берутся из профиля, а не вписаны здесь.
 import providers as _providers
+import svod
+
+# Путь к файлу ключей живёт в одном месте — в providers.py. Здесь он оставлен только как
+# совместимое имя: его читают диагностические скрипты (`_pv_selfcheck.py`). Второй копии
+# литерала быть не должно: разошедшиеся пути к ключам выглядят как «ключа нет».
+CRED = _providers.CRED
 
 _PROVIDER = _providers.register(_providers.Profile(
     name='polza',
@@ -79,6 +84,17 @@ KEY = load_key()
 # recognises this one condition and retries with twice the room instead.
 REASONING_STARVED_MARKERS = ('рассужд', 'internal reasoning', 'reasoning tokens')
 REASONING_HEADROOM_CAP = 32000   # matches the largest limit already used in this file
+
+# Пометки о сбое СТРУКТУРИРОВАНИЯ формы (не транскрипции). Нужны, чтобы отличить сбой
+# вызова модели от честного «в документе нет форм»: см. `process()`, где `no_forms`
+# понижается до `incomplete`, если одна из этих пометок есть.
+STRUCTURE_FAILED_MARKERS = ('whole-form structure failed', 'split structuring failed',
+                            # сбой ЧТЕНИЯ страницы — тот же класс: не «форм нет», а «прочитать
+                            # не удалось». Добавлено 03.11.2026 после замера на новых
+                            # отчётах: при полном отказе сети документ возвращался с
+                            # status=no_forms, хотя формы в нём есть и страницы были
+                            # выбраны детекцией.
+                            'чтение не удалось', 'READ FAILED')
 
 
 def _reasoning_starved(raw):
@@ -189,6 +205,14 @@ def find_form_pages(doc):
               'cash_flow': ['Отчет о движении денежных средств', 'Отчёт о движении денежных средств']}
     SKIP = ['Отчет об изменениях капитала', 'Отчёт об изменениях капитала',
             'Пояснения к бухгалтерскому', 'Отчет о целевом использовании']
+    # Формы, которые не являются ни одной из трёх наших. Опознаём их по КОДУ, а не по
+    # заголовку: в текстовом слое заголовок часто теряется, а колонтитул «Форма 0710004
+    # с. 2» остаётся. Без этого шаг назад (back-extension) уходил на «Отчёт об изменениях
+    # капитала» и подклеивал его к ОДДС — измерено на 6 документах (Бианка премиум,
+    # Унител, Урожай, Проект 111, Сибсульфур, Рекорд трейд). У трёх из них колонки ОДДС
+    # получили заголовок чужой формы («На 30 июня 2025 г.» / «На 31 декабря 2025 г.»),
+    # и свод ставил числа 2026 года в колонку 2025.
+    FOREIGN_FORM_CODES = ('0710003', '0710004', '0710006')
     def _strict_start(key, t):
         if CODES[key] in t: return True
         tl = t.lower()
@@ -217,7 +241,7 @@ def find_form_pages(doc):
             t = doc[p - 1].get_text()
             if any(m in t for m in SKIP) and CODES[key] not in t and _form_code_hits(key, t) < 3: break
             other = any((CODES[k] in t or any(ti in t for ti in TITLES[k]))
-                        for k in OTHER if k != key)
+                        for k in OTHER if k != key) or any(fc in t for fc in FOREIGN_FORM_CODES)
             if CODES[key] in t or any(ti in t for ti in TITLES[key]) or _form_code_hits(key, t) >= 3:
                 pages.append(p); misses = 0
             elif other and _form_code_hits(key, t) < 3:
@@ -243,12 +267,17 @@ def find_form_pages(doc):
             if not pages or pages[0] <= 1: break
             t = doc[pages[0] - 2].get_text()
             tl = t.lower()
-            if any(m in t for m in SKIP) or any(CODES[k] in t for k in CODES if k != key): break
+            if (any(m in t for m in SKIP)
+                    or any(CODES[k] in t for k in CODES if k != key)
+                    or any(fc in t for fc in FOREIGN_FORM_CODES)):
+                break
             if _form_code_hits(key, t) >= 3:
                 pages.insert(0, pages[0] - 1); continue
+            # Голое «Наименование показателя» стоит в шапке ЛЮБОЙ формы и потому не
+            # доказывает, что страница принадлежит этой. Требуем признак самой формы.
             lead = {'balance': ('актив' in tl or 'баланс' in tl),
-                    'income_statement': ('выручка' in tl or 'Наименование показателя' in t),
-                    'cash_flow': ('сальдо' in tl or 'Наименование показателя' in t)}.get(key, False)
+                    'income_statement': ('выручка' in tl or 'финансовых результатах' in tl),
+                    'cash_flow': ('сальдо' in tl or 'денежных потоков' in tl)}.get(key, False)
             lines = [x.strip() for x in t.splitlines() if x.strip()]
             nval = sum(1 for x in lines if is_value_line(x) or CODE_RE.match(x))
             if lead and nval >= 6:
@@ -421,7 +450,7 @@ def escalation_gate(form_key, before, after):
                                % (a, b, len(shared)))
     return True, ''
 
-def detect_columns(text):
+def detect_columns(text, warnings=None):
     """column labels from header text: 3 balance dates or 2 period labels"""
     dates = []
     for d, mon, y in re.findall(r'На\s+(\d{1,2})\s+([а-яё]+)\s+(\d{4})', text, re.I):
@@ -430,6 +459,47 @@ def detect_columns(text):
             iso = f'{y}-{m:02d}-{int(d):02d}'
             if iso not in dates: dates.append(iso)
     if len(dates) >= 2: return dates[:3]
+
+    # Год может стоять ОТДЕЛЬНОЙ строкой, а год второй колонки — не попасть в текстовый слой
+    # вообще: «На 30 июня / На 31 декабря / 2026 г.». Тогда даты находятся БЕЗ года, функция
+    # возвращала пустой список, и баланс в своде оставался пустым, хотя числа в артефакте есть
+    # (замер: `АСГ Трансформаторен_6мес_2026`, 18 пустых клеток свода).
+    #
+    # Хуже того, при таком порядке строк регекс выше даёт ЛОЖНУЮ дату: год из отдельной строки
+    # «прилипает» к «На 31 декабря» через перевод строки (`\s+` съедает `\n`), и получается
+    # 31.12.2026 — колонки, которой в отчёте за 6 месяцев не бывает. Поэтому вывод ниже
+    # строится заново из «На <число> <месяц>» и НЕ использует одиночную найденную дату.
+    #
+    # Раскладка баланса за 6 месяцев: первая колонка — 30 июня отчётного года, каждая
+    # следующая — 31 декабря предыдущего года. Год из отдельной строки относится к первой
+    # колонке; подтверждение — ОФР того же документа («За 1 полугодие 2026 г.» / «...2025 г.»).
+    # Вывод делается только для июньской раскладки и всегда объявляется в warnings: это
+    # догадка, а не прочитанное значение, и она обязана быть видна.
+    if len(dates) < 2:
+        bare = re.findall(r'На\s+(\d{1,2})\s+([а-яё]+)', text, re.I)
+        years = re.findall(r'^\s*(20\d{2})\s*г?\.?\s*$', text, re.M)
+        first_ok = (bare and MONTHS.get(bare[0][1].lower()) == 6)
+        if len(bare) >= 2 and years and first_ok:
+            y0 = int(years[0])
+            out = []
+            for d, mon in bare:
+                m = MONTHS.get(mon.lower())
+                if not m:
+                    continue
+                iso = f'{y0 - len(out)}-{m:02d}-{int(d):02d}'
+                if iso not in out:
+                    out.append(iso)
+                if len(out) == 3:
+                    break
+            if len(out) >= 2:
+                if warnings is not None:
+                    warnings.append(
+                        'columns: год не в заголовке, а отдельной строкой; выведено '
+                        f'{", ".join(out)} — первая колонка отнесена к {y0} г., каждая '
+                        'следующая к 31 декабря предыдущего года. Это ДОГАДКА по раскладке '
+                        'баланса за 6 месяцев, её надо подтвердить по PDF')
+                return out
+
     pers = []
     for a, b in re.findall(r'За\s+((?:\d+\s+)?(?:полугодие|месяцев|месяц|квартал|год)[а-яё]*)\s+(\d{4})', text, re.I):
         lab = f'За {a} {b} г.'
@@ -461,7 +531,7 @@ def structure_text_form(doc, pages, form_key):
     lines = []
     for p in pages:
         lines.extend(doc[p - 1].get_text().splitlines())
-    columns = detect_columns('\n'.join(lines[:120]))
+    columns = detect_columns('\n'.join(lines[:120]), warnings=warnings)
     ncols = len(columns) or 2
     if not columns: warnings.append('columns not detected, assumed 2')
 
@@ -616,9 +686,38 @@ def run_checks(form_key, items):
         for c in range(n):
             try: per_col.append(fn(c))
             except Exception: per_col.append(None)
-        ok = all(v is not False for v in per_col) and any(v is True for v in per_col)
-        res.append({'rule': name, 'per_column': per_col, 'ok': ok})
+        # ТРИ исхода, а не два: правило, которое НЕЛЬЗЯ вычислить ни в одной колонке,
+        # это не провал, а отсутствие проверки. Раньше такие правила записывались как
+        # ok=False, и форма объявлялась несходящейся на пустом месте: на синтетическом
+        # балансе без детализации разделов IV и V четыре правила из шести выходили
+        # «провалом» при полностью верных цифрах. Это прямо противоречило замыслу
+        # sect() ниже, который возвращает None именно ради того, чтобы «нет детализации»
+        # не стало ложным провалом, — замысел отменялся на этом самом месте.
+        #
+        # Разделение важно и по деньгам: ложный провал баланса покупает эскалацию
+        # (pipeline.escalate_failed_form), а эскалация — 51% цены пилота.
+        computed = [v for v in per_col if v is not None]
+        if not computed:
+            verdict = 'n/a'
+        elif any(v is False for v in computed):
+            verdict = 'fail'
+        else:
+            verdict = 'ok'
+        res.append({'rule': name, 'per_column': per_col,
+                    'verdict': verdict, 'ok': verdict == 'ok'})
     return res
+
+def is_failure(chk):
+    """Провалило ли правило — решение о ПЕРЕЧИТЫВАНИИ страницы принимается только здесь.
+
+    `verdict` есть не у всех проверок: у артефактов, снятых прежними версиями кода, его
+    нет, и там решение принимается по старому полю `ok`. Так сохранённый артефакт читается
+    без пересева, а `n/a` не попадает в провалы.
+    """
+    v = chk.get('verdict')
+    if v is None:
+        return chk.get('ok') is False
+    return v == 'fail'
 
 # ---------------------------------------------------------------- LLM structuring
 SCHEMA_HINT = '''Верни СТРОГО JSON без пояснений по схеме:
@@ -642,6 +741,114 @@ def llm_structure_form(transcript, form_key, model=None):
         if fin == 'length':
             raise ValueError('structuring truncated (finish=length)')
         return extract_json(txt)
+    return _call(), None
+
+# ---------------------------------------------------------------- ОДДС: только 4100
+# Задано пользователем 19.11.2026: из ОДДС нужен только операционный денежный поток (4100).
+#
+# Зачем отдельный путь, а не «прочитать форму целиком». Полное структурирование ОДДС —
+# самая дорогая операция конвейера: измерено 19.11.2026 на «Кокс_9мес_2025», один вызов
+# 1 905 вх / 34 078 вых = **0.65 ₽** (модель переписывает все строки 4100-4500 с детьми).
+# Извлечение одного кода тем же текстом стоит на два порядка меньше, потому что ответ —
+# две колонки чисел. Для 270 документов это разница в сотни рублей.
+#
+# Страницы читаются по порядку и только до той, где стоит 4100: в разобранных отчётах он
+# всегда на первой странице формы, но ОДДС бывает разбит на три (4100 / 4200 / 4300-4500),
+# и остальные две для этого состава данных не нужны.
+CF_KEEP_CODES = ('4100', '4110')
+CF_PAGE_CAP = 3          # предохранитель: не читать больше трёх страниц в поисках 4100
+
+CF_PROMPT_VERSION = '2'   # менять при правке подсказки: кэш обязан обесцениться
+
+CF_PROMPT = '''Ниже транскрипция отчёта о движении денежных средств.
+Нужны ДВЕ строки раздела текущих операций:
+  4110 — «Поступления — всего» (сколько денег пришло);
+  4100 — «Сальдо денежных потоков от текущих операций» (итог).
+Верни СТРОГО JSON без пояснений:
+{"columns": ["<подпись колонки 1>", "<подпись колонки 2>", ...],
+ "4100": [<значение колонки 1>, <значение колонки 2>, ...],
+ "4110": [<значение колонки 1>, <значение колонки 2>, ...]}
+В columns включай ТОЛЬКО колонки с периодами (например «За 9 месяцев 2026 г.»).
+Служебные колонки «Пояснения», «Наименование показателя», «Код» не включай.
+Правила: числа как в документе (тыс. руб), прочерк/пусто -> null, "(123)" -> -123,
+разделители тысяч игнорируй. НЕ выдумывай значения: если строки нет — верни пустой
+список для этого кода.
+
+ТРАНСКРИПЦИЯ:
+'''
+
+def cf_clean_values(vals):
+    """Значения 4100 из ответа модели: только числа, подписи и коды отбрасываются.
+
+    Замер 19.11.2026, «Рубеж_9мес_2026»: модель вернула `[None, "Сальдо денежных потоков
+    от текущих операций", 4100, -96948, 567207]`. Прямое доверие записало бы в форму мусор,
+    а проверки этого не увидели бы — они на 4100 не опираются.
+    """
+    out = []
+    for v in (vals or []):
+        if v is None or isinstance(v, bool):
+            out.append(None); continue
+        if isinstance(v, (int, float)):
+            out.append(v); continue
+        s = str(v).strip().replace('\u00a0', '').replace(' ', '').replace(',', '.')
+        s = s.replace('(', '-').replace(')', '')
+        try:
+            out.append(float(s) if '.' in s else int(s))
+        except ValueError:
+            out.append(None)
+    return out
+
+PERIOD_RE = re.compile(r'\d{4}|месяц|квартал|полугод|год|г\.', re.I)
+
+def cf_period_columns(cols, vals):
+    """Оставить только колонки-периоды и значения на тех же местах.
+
+    Замер 19.11.2026: модель вернула ['Пояснения', 'Наименование показателя', 'Код',
+    'За 9 месяцев 2026 г.', 'За 9 месяцев 2025 г.'] — числа верны, но сдвинуты на три
+    позиции. Без выравнивания 4100 получил бы None вместо суммы.
+    """
+    if not cols or len(cols) != len(vals):
+        return cols, vals
+    keep = [i for i, c in enumerate(cols) if PERIOD_RE.search(str(c))]
+    if keep and len(keep) < len(cols):
+        return [cols[i] for i in keep], [vals[i] for i in keep]
+    return cols, vals
+
+def llm_extract_cf_4100(transcript, model=None):
+    """Только код 4100 из ОДДС. Возвращает {columns, items} в форме, пригодной для items.
+
+    Разбор защищён от вольностей ответа. Замер 19.11.2026: на «Рубеж_9мес_2026» модель
+    вернула в `values` смесь из подписи строки, самого кода и двух чисел —
+    `[None, "Сальдо денежных потоков...", 4100, -96948, 567207]`. Прямое доверие такому
+    массиву записало бы в форму мусор, и проверки этого не увидели бы (они на 4100 не
+    опираются). Поэтому берутся только числа, а строки с цифрами разбираются как числа.
+    """
+    prompt = CF_PROMPT + transcript
+    def _call():
+        txt, fin = chat([{'role': 'user', 'content': prompt}], model or M_MAIN,
+                        temperature=0, max_tokens=1200)
+        if fin == 'length':
+            raise ValueError('4100 extraction truncated (finish=length)')
+        obj = extract_json(txt) or {}
+        cols = [str(c) for c in (obj.get('columns') or [])]
+        # обратная совместимость: ответ со старым полем "values" — это 4100
+        if 'values' in obj and '4100' not in obj:
+            obj['4100'] = obj.get('values')
+        items, out_cols = [], cols
+        names = {'4100': 'Сальдо денежных потоков от текущих операций',
+                 '4110': 'Поступления — всего (текущие операции)'}
+        for code in CF_KEEP_CODES:
+            vals = cf_clean_values(obj.get(code))
+            if cols and len(vals) > len(cols):
+                vals = vals[:len(cols)]
+            c2, v2 = cf_period_columns(cols, vals)
+            if not any(x is not None for x in v2):
+                continue
+            out_cols = c2
+            items.append({'code': code, 'name': names.get(code, code), 'values': v2})
+        if not items:
+            return {'columns': [], 'items': []}
+        return {'columns': out_cols, 'items': items}
     return _call(), None
 
 def _nk(s):
@@ -719,6 +926,13 @@ def _rows_repeat(a, b):
         if x is not None and y is not None and x != y:
             return False
     return True
+
+
+# Сравнение «копия и кандидат — одна и та же напечатанная строка» живёт в
+# svod.same_printed_row. Здесь была её посимвольная копия, и правка одного экземпляра
+# не доезжала до другого; замеры (УПТК65, ЕнисейАгроСоюз) описаны там же.
+# Тест test_merge_absorbed_row.py сверяет эквивалентность — теперь она по построению.
+_same_printed_row = svod.same_printed_row
 
 
 def _repeat_vals(a, b):
@@ -818,6 +1032,34 @@ def merge_duplicate_codes(items, warnings=None, form_key=None):
                                               nxt.get('raw_values') or [])
                 msg = (f'дубль кода {c}: сложены значения строк «{names[0]}» и «{names[1]}» '
                        f'-> {[v for v in cur["values"]]}')
+                # Сложенная строка — НАПЕЧАТАННАЯ строка отчёта, и она должна остаться
+                # видимой: сумма правит итог по коду, но не отменяет саму строку.
+                # Измерено на «Бианка премиум»: «Обязательство по аренде» несёт тот же код
+                # 1520, что и «Кредиторская задолженность», и после сложения строка
+                # исчезала — свод терял аренду (1550 пустел, эталон 173350).
+                # НО только если у неё НЕТ своих дочерних строк: когда они есть, они
+                # переезжают наверх и уже несут это значение, и оставить ещё и родителя —
+                # значит посчитать сумму дважды. Измерено на «Биовитрум»: «Обязательство по
+                # аренде» 45 722 = «Краткосрочные обязательства по лизингу» 12 262 +
+                # «...по аренде» 33 461, и вместе с родителем выходило 91 445 вместо 45 723.
+                if not nxt.get('children'):
+                    # Копия нужна ТОЛЬКО чтобы напечатанная строка осталась видимой. Если
+                    # ровно такая строка (имя и значения) среди детей УЖЕ есть, копия
+                    # ничего не делает видимым, зато удваивает значение для всякого, кто
+                    # суммирует вложенные строки. Измерено на «ЕнисейАгроСоюз_6мес_2025»:
+                    # дешёвый переразбор вернул «Обязательство по аренде» 10 847 кодом
+                    # 1520, а та же строка уже лежала без кода под 1520 — свод считал
+                    # аренду дважды и давал 1550 = 21 694 вместо 10 847.
+                    dup_child = any(
+                        (ch.get('name') or '') == (nxt.get('name') or '')
+                        and _same_printed_row(nvals, ch.get('values') or [])
+                        for ch in cur['children'])
+                    if not dup_child:
+                        cur['children'].append({'code': nxt.get('code'),
+                                                'name': nxt.get('name'),
+                                                'values': list(nvals),
+                                                'raw_values': list(nxt.get('raw_values') or []),
+                                                '_absorbed_by_sum': True})
             # Слитая строка исчезает из верхнего уровня, но её вложенные строки — данные,
             # поэтому они переезжают к той строке, в которую влились, а не пропадают.
             if nxt.get('children'):
@@ -904,16 +1146,25 @@ DETECT_PROMPT = DETECT_PROMPT_V2
 # empty tag, which is what the label sets already on disk are keyed by.
 # There is deliberately no version constant to bump: one existed before and was forgotten.
 
-def detect_cache_stem(name, prompt=None):
-    """cache-key stem for detection labels: '<document>_detect', plus a digest once edited.
+def detect_cache_stem(name, prompt=None, fp=None):
+    """cache-key stem for detection labels: '<document>_detect[_<prompt>][_<file>]'.
 
     A rewritten prompt must not read another prompt's labels, and must not be silently
     ignored either — so the key follows the text, not a version number someone has to
     remember to bump.
+
+    `fp` — отпечаток ФАЙЛА (doc_fingerprint). Без него ключ не различает две разные
+    редакции под одним именем: положив на место PDF другой документ, прогон получал
+    СТАРЫЕ метки страниц. Измерено на «АйДи Коллект_6мес_2026»: после замены файла
+    (файл-пояснения -> настоящая отчётность) страницы 1-22 остались помечены 'notes'
+    от прежнего файла — ключи совпали, потому что стем и промпт у них одни и те же, —
+    и баланс на стр. 1 не был найден вовсе. Кэш расшифровок страниц это правило
+    соблюдал с самого начала (doc_fingerprint в ключе), а кэш меток — нет.
     """
     prompt = DETECT_PROMPT if prompt is None else prompt
     t = '' if prompt == DETECT_PROMPT_V1 else hashlib.sha1(prompt.encode('utf-8')).hexdigest()[:8]
-    return f'{os.path.splitext(name)[0]}_detect' + (f'_{t}' if t else '')
+    tail = '_'.join(x for x in (t, fp) if x)
+    return f'{os.path.splitext(name)[0]}_detect' + (f'_{tail}' if tail else '')
 
 FORM_LABELS = ('balance', 'income_statement', 'cash_flow')
 PAGE_LABELS = FORM_LABELS + ('notes', 'audit', 'other')
@@ -1217,7 +1468,7 @@ def repair_from_transcript(doc, form_key, res, result, want, warnings, name):
     result['checks'] = [c for c in result['checks'] if c['form'] != form_key] + res['checks']
     warnings.append(f'{form_key}: починено дешёвым переразбором оплаченного текста ({why}), '
                     f'страницы заново не перечитывались')
-    if all(c['ok'] for c in res['checks']):
+    if not any(is_failure(c) for c in res['checks']):
         warnings.append(f'{form_key}: fixed by cheap re-parse ({model_tag(M_MAIN)})')
     return True
 
@@ -1232,11 +1483,25 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
     """Re-OCR problem pages with a stronger model, merge, re-check. See ESC_DPI."""
     res = result[form_key]
     def codes_from_checks(chks):
+        """Коды, которые эскалации разрешено переписать: все четырёхзначные из правила.
+
+        Раньше здесь стояло `(?<![\\d-])\\d{4}(?![\\d-])` — запрет на цифру ИЛИ МИНУС слева
+        и справа. Запрет на минус отсекал ровно те коды, что стоят рядом со знаком, то
+        есть расходные строки ОФР: в правиле `2100 == 2110-2120 (±)` в набор попадал
+        только 2100, а 2110 и 2120 — нет; в `2400 == 2300-2410±2421∓2430±2450-2460`
+        терялись 2300, 2410, 2450, 2460. Между тем именно там чаще всего теряется знак
+        или скобка, и именно там эскалация была нужнее всего.
+
+        Знак в правиле — разделитель, а не часть кода, поэтому код берётся как токен из
+        цифр ровно длиной 4: так он находится при любом соседнем знаке, а пятизначный
+        под-код (15301) в набор не просочится.
+        """
         out = set()
         for c in chks:
-            if c.get('ok'): continue
-            for tok in re.findall(r'(?<![\d-])\d{4}(?![\d-])', c['rule']):
-                out.add(tok)
+            if not is_failure(c): continue
+            for tok in re.findall(r'\d+', c['rule']):
+                if len(tok) == 4:
+                    out.add(tok)
         return out
     want = codes_from_checks([c for c in result['checks'] if c['form'] == form_key])
     pages = res.get('transcript_pages') or []
@@ -1251,12 +1516,32 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
         return
     print(f'  escalate {form_key}: codes={sorted(want)} pages={pages} -> {M_ESC} @{ESC_DPI}dpi')
     parts = []
-    for p in pages:
-        txt = escalation_transcript(doc, p, name)
-        parts.append(f'=== СТРАНИЦА {p} ===\n{txt}')
+    try:
+        for p in pages:
+            txt = escalation_transcript(doc, p, name)
+            parts.append(f'=== СТРАНИЦА {p} ===\n{txt}')
+    except Exception as e:
+        # Отказ канала эскалации — это НЕ повод потерять документ. Замер 02.11.2026:
+        # `anthropic/claude-sonnet-5:network` отдавал 503 «нет свободной ёмкости» на 4 вызова
+        # из 4, и исключение из перечитывания страницы выбрасывало весь артефакт вместе с уже
+        # оплаченными формами и проверками. Эскалация — надстройка над результатом, а не его
+        # источник: без неё документ остаётся на разборе основной модели, а провал проверки
+        # честно уходит в предупреждения и в status.
+        warnings.append(f'{form_key}: эскалация не выполнена — перечитывание страниц '
+                        f'сорвалось ({str(e)[:160]}); форма осталась на разборе основной модели')
+        print(f'  escalate: FAILED — {str(e)[:140]}')
+        return
     transcript = '\n\n'.join(parts)
     def _esc_struct(): return llm_structure_form(transcript, form_key, model=M_ESC)[0]
-    llm = cached_llm(f'{name}_esc_{form_key}_{model_tag(M_ESC)}', _esc_struct)
+    try:
+        llm = cached_llm(f'{name}_esc_{form_key}_{model_tag(M_ESC)}', _esc_struct)
+    except Exception as e:
+        # Тот же принцип, что и для перечитывания: сбой структурирования на эскалации
+        # оставляет форму на разборе основной модели, а не уничтожает артефакт.
+        warnings.append(f'{form_key}: эскалация не выполнена — структурирование сорвалось '
+                        f'({str(e)[:160]}); форма осталась на разборе основной модели')
+        print(f'  escalate: STRUCTURING FAILED — {str(e)[:140]}')
+        return
     fresh = _normalize_llm(llm, form_key, warnings=warnings)
     # --- identity guards: an escalation may only speak about THIS document ---
     ok, why = identity_guard(name, form_key, llm.get('columns') or [])
@@ -1354,9 +1639,11 @@ def escalate_failed_form(doc, form_key, result, warnings, name):
         # replace this form's checks in the result
         result['checks'] = [c for c in result['checks'] if c['form'] != form_key] + res['checks']
     else:
-        res['checks'] = [dict(form=form_key, **c) for c in run_checks(form_key, res['items'])
-                         if False] or [c for c in result['checks'] if c['form'] == form_key]
-    if res['checks'] and all(c['ok'] for c in res['checks']):
+        # Эскалация ничего не изменила — проверки остаются прежними. Здесь стояло
+        # `[... for c in run_checks(...) if False] or [...]`: генератор с `if False` всегда
+        # пуст, работала только правая часть, а `run_checks` вызывался впустую.
+        res['checks'] = [c for c in result['checks'] if c['form'] == form_key]
+    if res['checks'] and not any(is_failure(c) for c in res['checks']):
         warnings.append(f'{form_key}: fixed by escalation ({M_ESC})')
     else:
         second_opinion = 'second model agrees; document may not reconcile' if confirmed else 'unresolved'
@@ -1380,6 +1667,24 @@ def decide_status(per_form_ok, unread, has_any_form):
         return 'no_forms'
     return 'incomplete'
 
+def downgrade_no_forms(status, warnings):
+    """`no_forms` -> `incomplete`, когда структурирование формы УПАЛО.
+
+    Тоже чистая функция, и по той же причине: правило должно проверяться без документа.
+
+    `no_forms` — это утверждение о СОДЕРЖИМОМ документа («форм в нём нет»). Сбой вызова
+    модели (502/503, срезанный ответ) — утверждение о ЧТЕНИИ. Пока их не различали, документ
+    с реальным балансом получал статус «форм нет»: измерено на `Биовитрум_6мес_2025`, где
+    баланс найден, а структурирование упало с HTTP 503 «Все каналы поставки этой модели
+    временно недоступны». Для свода это критично: по `no_forms` он показал бы пустые клетки
+    там, где отчётность есть.
+    """
+    if status != 'no_forms':
+        return status
+    if any(m in w for w in (warnings or []) for m in STRUCTURE_FAILED_MARKERS):
+        return 'incomplete'
+    return status
+
 def company_from_file(name):
     """company name from file name: 'ТГК-14_6мес_2025.pdf' -> 'ТГК-14'"""
     base = re.sub(r'_(\d+мес|год)_\d{4}\.pdf$', '', name, flags=re.I)
@@ -1400,8 +1705,43 @@ def text_branch_found_forms(fp):
     """
     return bool(fp) and any(fp.values())
 
+def absent_forms_note(want, present):
+    """Пометки о формах, которых в документе нет. Отсутствие — не провал чтения.
+
+    Задано 19.11.2026: часть эмитентов вправе не публиковать ОДДС (малые предприятия и
+    отдельные организационно-правовые формы). Поэтому пропавший ОДДС нельзя показывать
+    как «не прочитано»: это утверждение о СОДЕРЖИМОМ, а не о качестве работы конвейера.
+    Свод по такой пометке отличает «документ не содержит формы» от «форму не смогли прочитать».
+
+    Чистая функция: проверяется без документа и без модели.
+    """
+    names = {'balance': 'баланс', 'income_statement': 'ОФР', 'cash_flow': 'ОДДС'}
+    out = []
+    for key in sorted(set(want or ()) - set(present or ())):
+        label = names.get(key, key)
+        if key == 'cash_flow':
+            out.append(f'{key}: {label} в документе отсутствует — допустимо: часть '
+                       f'эмитентов вправе его не публиковать (не пробел чтения)')
+        else:
+            out.append(f'{key}: {label} в документе отсутствует (не пробел чтения)')
+    return out
+
 def wanted_forms(name):
-    """Form scope per file: 2025 -> balance only (scope cut); PILOT_FORMS=balance,cash_flow overrides."""
+    """Какие формы читать из файла. Задано пользователем 19.11.2026.
+
+    Состав данных:
+      отчёт ТЕКУЩЕГО года  — баланс, ОФР, ОДДС (из ОДДС нужен только код 4100);
+      отчёт ПРОШЛОГО года  — только баланс.
+
+    Почему у прошлого года нет ОДДС. В отчёте текущего года ОДДС уже содержит сравнительную
+    колонку за тот же период прошлого года, так что 4100 оттуда берётся без второго документа.
+    Второй документ нужен ради баланса на 30.09 прошлого года: в отчёте текущего года его
+    нет (там 30.09 текущего, 31.12 прошлого и 31.12 позапрошлого).
+
+    Отсутствие ОДДС — НЕ дефект чтения. Часть эмитентов имеет право его не публиковать
+    (малые предприятия, отдельные организационно-правовые формы). Поэтому пропавший ОДДС
+    не понижает статус документа и не считается пробелом чтения — см. `absent_forms_note`.
+    """
     if os.environ.get('PILOT_FORMS'):
         return {f.strip() for f in os.environ['PILOT_FORMS'].split(',') if f.strip()}
     if re.search(r'_2025\.pdf$', name, flags=re.I):
@@ -1442,17 +1782,27 @@ def doc_fingerprint(doc):
 
     Two files can share a name (re-download, replaced file) and two names can share
     content. The cache key must follow the bytes.
+
+    Замер кэшируется по (путь, mtime, размер), а НЕ по одному пути. Функция зовётся на
+    каждую страницу, поэтому кэш нужен (иначе 20-МБ файл хешировался бы 31 раз), но
+    кэш по одному пути пережил бы замену файла и вернул бы прежний отпечаток — ровно
+    та ошибка, от которой этот отпечаток и защищает.
     """
     path = getattr(doc, 'name', None) or ''
     if not path or not os.path.exists(path):
         return 'nofile'
-    if path not in _FINGERPRINTS:
+    try:
+        st = os.stat(path)
+        key = (path, st.st_mtime_ns, st.st_size)
+    except OSError:
+        key = (path, None, None)
+    if key not in _FINGERPRINTS:
         h = hashlib.sha1()
         with open(path, 'rb') as fh:
             for chunk in iter(lambda: fh.read(1 << 20), b''):
                 h.update(chunk)
-        _FINGERPRINTS[path] = h.hexdigest()[:10]
-    return _FINGERPRINTS[path]
+        _FINGERPRINTS[key] = h.hexdigest()[:10]
+    return _FINGERPRINTS[key]
 
 def _doc_stem(doc):
     return os.path.splitext(os.path.basename(getattr(doc, 'name', '') or ''))[0]
@@ -1695,11 +2045,10 @@ def cached_llm(tag, fn):
     obj = fn()
     _write_cache(path, json.dumps(obj, ensure_ascii=False))
     return obj
-    return obj
 
-def detect_page_cache_stem(name, p):
-    """cache-key stem for ONE page's label: '<document>_detect_pg_p<page>'."""
-    return f'{detect_cache_stem(name)}_pg_p{p}'
+def detect_page_cache_stem(name, p, fp=None):
+    """cache-key stem for ONE page's label: '<document>_detect[_<prompt>][_<file>]_pg_p<page>'."""
+    return f'{detect_cache_stem(name, fp=fp)}_pg_p{p}'
 
 def detect_one_page(doc, p, npages):
     """Label a single page: one call, one image, one page of context.
@@ -1731,6 +2080,28 @@ def detect_one_page(doc, p, npages):
     m = re.search(r'"\s*\d*\s*"\s*:\s*"(\w+)"', txt) or \
         re.search(r'\b(balance|income_statement|cash_flow|notes|audit|other)\b', txt)
     return m.group(1) if m else 'unknown'
+
+# Сколько страниц подряд без форм достаточно, чтобы прекратить детекцию.
+# Замер 19.11.2026: в 49-страничном отчёте формы занимают стр. 1-11 (баланс 1-3, ОФР 4-5,
+# ОДДС 9-11), дальше 38 страниц пояснений. Детекция постраничная и платная по времени:
+# просмотр всех 5 891 страницы корпуса занимал ~12 ч, тогда как формы кончаются на 11-й.
+DETECT_TAIL_MARGIN = 4
+
+def should_stop_detection(want, found, last_form_page, last_scanned):
+    """Пора ли прекратить просмотр страниц. Чистая функция — проверяется без документа.
+
+    Условия одновременно: все нужные формы найдены И после последней найденной формы
+    просмотрено не меньше DETECT_TAIL_MARGIN страниц подряд. Если хоть одна нужная форма
+    не найдена — просмотр идёт до конца документа, потому что «не нашли» и «дальше нет»
+    это разные утверждения, и второе нельзя делать по первым страницам.
+    """
+    if not want or not found:
+        return False
+    if not set(want) <= set(found):
+        return False
+    if not last_form_page:
+        return False
+    return (last_scanned - last_form_page) >= DETECT_TAIL_MARGIN
 
 def detect_pages_per_page(doc, cand, npages, warnings, name):
     """Stage 1, one page per call — the method the measurements selected.
@@ -1767,7 +2138,7 @@ def detect_pages_per_page(doc, cand, npages, warnings, name):
             except Exception as e:
                 warnings.append(f'detection: page {p} failed: {e}')
                 return 'unknown'
-        return p, cached_llm(detect_page_cache_stem(name, p), call)
+        return p, cached_llm(detect_page_cache_stem(name, p, doc_fingerprint(doc)), call)
 
     with ThreadPoolExecutor(max_workers=4) as ex:
         for p, lab in ex.map(one, list(cand)):
@@ -1840,11 +2211,36 @@ def scan_pipeline(doc, name, only_pages=None):
     # the group method this replaced was a lottery — measured agreement 78% with the balance
     # lost outright in 40% of runs, against 96% and never lost for one page per call. See
     # `detect_pages_per_page` for the numbers.
+    # Детекция идёт блоками и может остановиться раньше конца документа: формы стоят в
+    # начале, а пояснения занимают десятки страниц (см. DETECT_TAIL_MARGIN). Останов
+    # разрешён только когда ВСЕ нужные формы уже найдены — иначе документ просматривается
+    # целиком, иначе «формы нет» стало бы утверждением по первым страницам.
+    _want = wanted_forms(name)
+    pages_map = []
+    _found, _last_form, _scanned = set(), 0, 0
     try:
-        pages_map = detect_pages_per_page(doc, cand, npages, warnings, name)
+        _CH = 8
+        for _i in range(0, len(cand), _CH):
+            _chunk = cand[_i:_i + _CH]
+            _part = detect_pages_per_page(doc, _chunk, npages, warnings, name)
+            pages_map.extend(_part)
+            for _p in _part:
+                if _p.get('form') in FORM_LABELS:
+                    _found.add(_p['form'])
+                    _last_form = max(_last_form, _p.get('page') or 0)
+            _scanned = _chunk[-1]
+            if should_stop_detection(_want, _found, _last_form, _scanned):
+                print(f'  detection stopped: просмотрено {len(pages_map)} из {len(cand)} '
+                      f'страниц-кандидатов (последняя стр.{_scanned}), все формы найдены '
+                      f'({sorted(_found)})')
+                if len(pages_map) < len(cand):
+                    warnings.append(
+                        f'детекция остановлена: просмотрено {len(pages_map)} из {len(cand)} '
+                        f'страниц-кандидатов (последняя стр.{_scanned}), все нужные формы '
+                        f'найдены, дальше {DETECT_TAIL_MARGIN} страниц подряд без форм')
+                break
     except Exception as e:
         warnings.append(f'detection failed: {e}')
-        pages_map = []
     form_pages = {}
     for p in pages_map:
         f = p.get('form')
@@ -1868,6 +2264,11 @@ def scan_pipeline(doc, name, only_pages=None):
     unlabeled = sorted({p.get('page') for p in pages_map
                         if p.get('form') not in PAGE_LABELS})
     doc_result['_extra_pages']['unlabeled'] = unlabeled
+    # Полный набор меток по страницам — для свода. Без него «форма есть, но не прочитана» и
+    # «формы в документе нет» выглядят одинаково, и читатель идёт перечитывать файл, в котором
+    # формы нет вовсе. Замер: Регион-Продукт_6мес_2026 — 6 страниц, 1-3 баланс, 4 пустая,
+    # 5-6 ОФР; ОДДС в файле отсутствует, а аудит называл это «настоящим пробелом чтения».
+    doc_result['_page_labels'] = {p.get('page'): p.get('form') for p in pages_map}
     if unlabeled:
         warnings.append(
             f'detection: {len(unlabeled)} of {len(cand)} pages got no readable label '
@@ -1890,29 +2291,59 @@ def scan_pipeline(doc, name, only_pages=None):
     # key; when page 1 is also a form page this is a cache hit and costs nothing.
     title_pages = [1] if npages >= 1 else []
     from concurrent.futures import ThreadPoolExecutor
-    todo = sorted({p for plist in form_pages.values() for p in plist
+
+    def _read(p):
+        """Прочитать страницу, НЕ убивая документ сетевым сбоем.
+
+        Здесь стоял `ex.map(lambda p: transcribe_cached(...))` без защёлки, и цена этого
+        измерена на новых отчётах: 502 от шлюза на ОДНОЙ странице выбрасывал исключение из
+        `map`, а с ним — весь документ. Из 8 документов пилота так потерялись 3 целиком, хотя
+        остальные их страницы были уже прочитаны и оплачены. Сбой чтения одной страницы —
+        это «эта страница не прочитана», а не «документа нет»: дальше его поймает
+        `transcript_missing` и честно назовёт пробел.
+        """
+        try:
+            return transcribe_cached(doc, p, name, dpi=200, model=M_MAIN, warnings=warnings)
+        except Exception as e:
+            warnings.append(f'страница {p}: чтение не удалось ({str(e)[:120]}) — '
+                            f'строки этой страницы в форме отсутствуют')
+            print(f'  page {p}: READ FAILED — {str(e)[:100]}')
+            return None
+
+    # ОДДС читается только до страницы с кодом 4100 (см. CF_KEEP_CODES). Первую страницу
+    # формы читаем всегда, остальные — лишь если 4100 на ней не оказалось. Поэтому в общий
+    # пул попадает только первая, иначе мы заплатили бы за страницы, которые не нужны.
+    cf_pages = list(form_pages.get('cash_flow') or [])
+    todo_pages = []
+    for _k, _plist in form_pages.items():
+        if _k == 'cash_flow':
+            todo_pages.extend(cf_pages[:1])
+        else:
+            todo_pages.extend(_plist)
+    todo = sorted({p for p in todo_pages
                    if isinstance(p, int) and 1 <= p <= npages} | set(title_pages))
     with ThreadPoolExecutor(max_workers=4) as ex:
-        list(ex.map(lambda p: transcribe_cached(doc, p, name, dpi=200, model=M_MAIN,
-                                                warnings=warnings), todo))
+        list(ex.map(_read, todo))
     for p in title_pages:
-        transcripts[f'title_p{p}'] = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN,
-                                                       warnings=warnings)
+        try:
+            transcripts[f'title_p{p}'] = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN,
+                                                           warnings=warnings)
+        except Exception as e:
+            # титул нужен только ради ИНН/ОКПО/единицы; его отсутствие не повод
+            # терять весь документ
+            warnings.append(f'стр.{p} (титул) не прочитана ({str(e)[:120]}) — '
+                            f'ИНН/ОКПО/единица могут отсутствовать')
+            print(f'  title page {p}: READ FAILED — {str(e)[:100]}')
     # ПОЛНОТА ЧТЕНИЯ. Детекция выбрала страницу, за её чтение заплачено — но транскрипт мог не
     # появиться: фильтр провайдера срезал ответ и продолжение не удалось. Раньше это не
     # отражалось нигде (артефакт писал status=ok при неполной форме), и потеря строки 1520 у
     # «ИПС_6мес_2025» выглядела как загадка разбора. Проверка локальная и бесплатная: она
     # смотрит только на диск, моделей не зовёт.
-    read_pages = sorted({p for plist in form_pages.values() for p in plist
-                         if isinstance(p, int) and 1 <= p <= npages} | set(title_pages))
-    gaps = transcript_missing(
-        read_pages, lambda q: os.path.exists(page_cache_path(doc, name, q, 200, M_MAIN)))
-    doc_result['_unread_pages'] = gaps
-    if gaps:
-        warnings.append(
-            f'чтение неполно: нет транскрипта для стр. {gaps} — фильтр провайдера срезал ответ, '
-            f'строки этих страниц в форме отсутствуют')
-        print('  pages read INCOMPLETELY (no transcript):', gaps)
+    # Проверка полноты перенесена ПОСЛЕ сборки форм (см. ниже). Раньше она стояла здесь и
+    # смотрела на все страницы форм сразу, но ОДДС теперь читается не целиком: в пул попадает
+    # только первая страница, остальные — по мере поиска 4100. На этом месте проверка видела
+    # ещё не прочитанные страницы ОДДС и объявляла документ неполным («Рубеж_9мес_2025»:
+    # ложное «нет транскрипта для стр. [11]», статус incomplete при живых данных).
     # Pages that are NOT forms are not read as part of a form — but if such a page was read
     # ANYWAY, its text is kept rather than dropped. Page 1 is always read (it carries
     # inn/okpo/unit), and in annual reporting page 1 can be the auditor's report; a page can
@@ -1925,14 +2356,88 @@ def scan_pipeline(doc, name, only_pages=None):
         transcripts[f'nonform_p{p}'] = open(path, encoding='utf-8').read()
     for key, plist in form_pages.items():
         parts = []
+        cf_partial = (key == 'cash_flow')
+        cf_first = min((p for p in plist if isinstance(p, int)), default=None)
         for p in plist:
             if not isinstance(p, int) or p < 1 or p > npages: continue
-            txt = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN, warnings=warnings)
+            try:
+                txt = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN, warnings=warnings)
+            except Exception as e:
+                warnings.append(f'{key}: стр.{p} не прочитана ({str(e)[:120]}) — '
+                                f'форма собрана без неё')
+                continue
             parts.append(f'=== СТРАНИЦА {p} ===\n{txt}')
             transcripts[f'{key}_p{p}'] = txt
+            # ОДДС: нужен только 4100 — дошли до страницы, где он стоит, и остановились.
+            # Остальные страницы формы (4200 / 4300-4500) в этот состав данных не входят.
+            if cf_partial and '4100' in re.sub(r'[ \u00a0]', '', txt):
+                if len(parts) < len(plist):
+                    warnings.append(
+                        f'ОДДС прочитан частично: нужен только код 4100, он на стр.{p}; '
+                        f'страницы {plist[len(parts):]} не читались')
+                plist = plist[:len(parts)]
+                break
+            if cf_partial and len(parts) >= CF_PAGE_CAP:
+                break
+        # Баланс: если терминального кода нет, а первая помеченная страница не первая,
+        # читаем страницу перед ней. Замер 20.11.2026, «ЗАО Прогресс_9мес_2026»: детекция
+        # пометила только пассив (стр.4), актив остался на стр.3 — форма собралась из 14
+        # кодов без 1600/1700 и ушла в needs_review, хотя данные в документе есть.
+        if key == 'balance' and parts:
+            _first = min(p for p in plist if isinstance(p, int))
+            _flat = ''.join(re.sub(r'[ \u00a0]', '', x) for x in parts)
+            # нужны ОБА итога: 1700 (пассив) и 1600 (актив). Проверять только 1700
+            # бесполезно — он стоит на помеченной странице пассива, а актива там нет
+            if not ('1600' in _flat and '1700' in _flat) and _first > 1:
+                p = _first - 1
+                try:
+                    txt = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN,
+                                            warnings=warnings)
+                    parts.insert(0, f'=== СТРАНИЦА {p} ===\n{txt}')
+                    transcripts[f'{key}_p{p}'] = txt
+                    plist = [p] + list(plist)
+                    warnings.append(
+                        f'баланс: 1600/1700 не найдены на помеченных '
+                        f'страницах, прочитана стр.{p} (актив часто не помечается)')
+                except Exception as e:
+                    warnings.append(f'баланс: стр.{p} не прочитана ({str(e)[:100]})')
+        # Запасной ход, если 4100 так и не нашёлся: детекция иногда помечает не первую
+        # страницу формы. Замер 19.11.2026, «Рубеж_9мес_2025»: помечены 10 (4200) и
+        # 11 (4300-4500), а 4100 стоит на 9-й. Читаем одну страницу назад — но только
+        # когда это действительно нужно: лишняя страница стоит 0.09 ₽, а платить её
+        # на каждом документе незачем («Энерготехсервис_9мес_2025» нашёлся сразу на 7-й).
+        if (cf_partial and parts and cf_first and cf_first > 1
+                and not any('4100' in re.sub(r'[ \u00a0]', '', x) for x in parts)):
+            p = cf_first - 1
+            try:
+                txt = transcribe_cached(doc, p, name, dpi=200, model=M_MAIN, warnings=warnings)
+                parts.insert(0, f'=== СТРАНИЦА {p} ===\n{txt}')
+                transcripts[f'{key}_p{p}'] = txt
+                plist = [p] + list(plist)   # в артефакт — фактически прочитанные страницы
+                warnings.append(
+                    f'ОДДС: 4100 не найден на помеченных страницах, прочитана стр.{p} '
+                    f'(первая страница формы часто не помечается)')
+            except Exception as e:
+                warnings.append(f'ОДДС: стр.{p} не прочитана ({str(e)[:100]})')
         if parts:
             # stage 3: structure (+ split-in-half retry for truncated/broken output)
             full = '\n\n'.join(parts)
+            if cf_partial:
+                # лёгкое извлечение одного кода вместо переписывания всей формы
+                def _struct_cf(): return llm_extract_cf_4100(full)[0]
+                # метка кэша следует за ТЕКСТОМ подсказки: правка подсказки обязана
+                # обесценить прежний ответ, иначе кэш вернёт разбор другого вопроса
+                _tag = (f'{os.path.splitext(name)[0]}_cf4100_v{CF_PROMPT_VERSION}_'
+                        f'{hashlib.sha1((CF_PROMPT + full).encode("utf-8")).hexdigest()[:8]}')
+                try:
+                    structured = cached_llm(_tag, _struct_cf)
+                except Exception as e:
+                    warnings.append(f'ОДДС: извлечение 4100 не удалось ({e})')
+                    structured = None
+                if structured is not None:
+                    doc_result[key] = {'transcript_pages': plist, 'llm': structured,
+                                       'scope': ','.join(CF_KEEP_CODES)}
+                continue
             def _struct(): return llm_structure_form(full, key)[0]
             try:
                 structured = cached_llm(f'{os.path.splitext(name)[0]}_struct_{key}', _struct)
@@ -1954,6 +2459,20 @@ def scan_pipeline(doc, name, only_pages=None):
                     structured = None
             if structured is not None:
                 doc_result[key] = {'transcript_pages': plist, 'llm': structured}
+    # ПОЛНОТА ЧТЕНИЯ — после сборки форм, а не до неё. Смотрим только те страницы, за которые
+    # этот прогон действительно брался: берём их из уже собранных транскриптов, а не из меток
+    # детекции. Для ОДДС это принципиально: детекция помечает 10 и 11, а читается одна —
+    # проверка по меткам объявила бы непрочитанную страницу потерей данных.
+    read_pages = sorted({int(k.rsplit('_p', 1)[-1]) for k in transcripts
+                         if '_p' in k and k.rsplit('_p', 1)[-1].isdigit()} | set(title_pages))
+    gaps = transcript_missing(
+        read_pages, lambda q: os.path.exists(page_cache_path(doc, name, q, 200, M_MAIN)))
+    doc_result['_unread_pages'] = gaps
+    if gaps:
+        warnings.append(
+            f'чтение неполно: нет транскрипта для стр. {gaps} — фильтр провайдера срезал ответ, '
+            f'строки этих страниц в форме отсутствуют')
+        print('  pages read INCOMPLETELY (no transcript):', gaps)
     return warnings, transcripts
 
 # ---------------------------------------------------------------- main
@@ -1985,6 +2504,15 @@ def collect_scan_results(doc, name, transcripts, result):
         result[key] = {'form': [k for k, v in FORMS.items() if v == key][0],
                        'columns': d['llm'].get('columns', []),
                        'items': items, 'transcript_pages': d['transcript_pages']}
+        if d.get('scope'):
+            # Форма прочитана в УРЕЗАННОМ составе (ОДДС: только 4100). Это не «форма
+            # прочитана» и не «форма не прочитана»: правила 4400/4500 на ней не вычислить,
+            # и считать их провалом нельзя — иначе каждый документ уходил бы в needs_review
+            # из-за состава данных, а не из-за качества чтения.
+            result[key]['scope'] = d['scope']
+            result['warnings'].append(
+                f'{key}: прочитан в урезанном составе (только {d["scope"]}) — '
+                f'остальные строки формы в этот состав данных не входят')
         result['checks'] += [dict(form=key, **c) for c in run_checks(key, items)]
     # Hook for later: pages detection labelled as notes / the auditor's report. They are not
     # read as part of a form (they are separate text documents, and reading them as forms was
@@ -2002,6 +2530,10 @@ def collect_scan_results(doc, name, transcripts, result):
     # «there were no such pages» from «this run never looked», and an absent key cannot
     # say which. The warning is still only raised when there is something to report.
     result['source']['non_form_pages'] = non_form
+    # Метка каждой страницы: {номер: balance|income_statement|cash_flow|notes|audit|other|unknown}.
+    # Пишется ВСЕГДА, в том числе пустым словарём, — по той же причине, что и non_form_pages:
+    # «таких страниц не было» и «этот прогон не смотрел» обязаны различаться.
+    result['source']['page_labels'] = dict(doc_result.get('_page_labels') or {})
     # Text of non-form pages that were read anyway (page 1 always is; see scan_pipeline).
     # Kept because it has already been paid for, and a page number alone cannot say what the
     # auditor's report actually says. Pages that were never read are absent — that is not an
@@ -2020,6 +2552,17 @@ def collect_scan_results(doc, name, transcripts, result):
     for key in ('balance', 'income_statement', 'cash_flow'):
         d = result.get(key)
         if not d: continue
+        if d.get('scope'):
+            # Урезанный состав (ОДДС: только 4100) по построению содержит 1 строку и
+            # 2 значения — под порог «нет пригодной таблицы» он попадает всегда.
+            # Проверяем только то, что действительно должно быть: сам код и числа.
+            m = val_map(d['items'])
+            if not (m.get('4100') and any(v is not None for v in m['4100'])):
+                result['warnings'].append(
+                    f'{key}: в урезанном составе не найден код {d["scope"]} -> dropped')
+                result[key] = None
+                result['checks'] = [c for c in result['checks'] if c['form'] != key]
+            continue
         nvals = _values_count(d['items'])
         top = [it for it in d['items'] if it.get('code') in KNOWN_TOP]
         if nvals < 5 or not top:
@@ -2031,7 +2574,11 @@ def collect_scan_results(doc, name, transcripts, result):
     # a balance may simply not have been detected as a form page (defect 4.2)
     for key in ('balance', 'income_statement', 'cash_flow'):
         d = result.get(key)
-        if not d or form_is_complete(key, d['items']):
+        if not d or d.get('scope'):
+            # урезанный состав (ОДДС: только 4100) не «оборван» — он таким и задуман;
+            # добирать страницы ради 4500 значило бы вернуть полное структурирование
+            continue
+        if form_is_complete(key, d['items']):
             continue
         used = list(d.get('transcript_pages') or [])
         extra = extra_form_pages(doc, used)
@@ -2064,8 +2611,13 @@ def collect_scan_results(doc, name, transcripts, result):
                 f'{key}: pages {extra} did not yield {TERMINAL_CODE[key]}')
     # escalation: failed forms -> re-OCR problem pages at ESC_DPI with M_ESC
     for key in ('balance', 'income_statement', 'cash_flow'):
-        if result.get(key) and not all(c['ok'] for c in result['checks'] if c['form'] == key):
+        if result.get(key) and any(is_failure(c) for c in result['checks'] if c['form'] == key):
             escalate_failed_form(doc, key, result, result['warnings'], name=name)
+    # Формы, которых в документе нет, называются явно — но как СОДЕРЖИМОЕ, а не как пробел
+    # чтения: ОДДС часть эмитентов вправе не публиковать, и это не дефект конвейера.
+    result['warnings'] += absent_forms_note(
+        wanted_forms(name), [k for k in ('balance', 'income_statement', 'cash_flow')
+                             if result.get(k)])
     for k, t in transcripts.items():
         # This is a diagnostic dump of the transcripts the pipeline worked from, not the
         # paid cache — nothing reads it back. It still must name the provider: the same
@@ -2085,6 +2637,110 @@ def _garbled_page(pg):
         return False
     return sum(1 for c in a if ord(c) < 128) / len(a) > 0.5
 
+# --- текстовый слой, которого не хватает на документ --------------------------
+# Решение о ветке принималось по ОБЪЁМУ текста во всём документе (`chars > 200`).
+# Этого мало: у «АСГ Трансформаторен_6мес_2026» текстовый слой есть только на 6
+# страницах из 48 — то есть документ СМЕШАННЫЙ. В текстовой ветке читаются лишь
+# страницы, у которых текст есть, поэтому страницы-картинки молча выпадают.
+# Так потерялся весь АКТИВ баланса: он на стр. 2, а у неё текстового слоя нет
+# (стр. 3 — ПАССИВ — текст имеет). В артефакте остались только строки пассива,
+# а проверки `1600 == 1700`, `1100 == …`, `1200 == …` встали в `n/a`.
+#
+# Замер доли страниц с текстом (>=50 знаков) по корпусу:
+#   АСГ Трансформаторен_6мес_2026    6/48  -> 0.12   <-- смешанный
+#   Селл-Сервис_6мес_2026          19/41  -> 0.46
+#   НовосибирскАвтодор_6мес_2025   29/49  -> 0.59
+#   Йуми_6мес_2026                 28/42  -> 0.67
+#   ИПС_6мес_2026                  49/65  -> 0.75
+#   Бианка премиум / Рекорд трейд / Унител / Проект 111 / Славянск ЭКО -> 1.00
+# Провал между 0.12 и 0.46, порог 0.25 стоит в нём.
+#
+# Второе условие — на другой вид порчи того же слоя: текст есть, буквы целы, но
+# числа оторваны от своих строк (сначала все названия и коды, потом числа блоками
+# по колонкам). Признак: доля строк-с-кодом, у которых число в пределах +-3 строк:
+#   АСГ Трансформаторен_6мес_2026   1/25  -> 0.04
+#   Эфферон_6мес_2025               1/8   -> 0.12   (строк мало — порог по числу строк)
+#   ИПС_6мес_2026                  13/35  -> 0.37
+#   Сибсульфур_6мес_2025           38/99  -> 0.38
+#   остальные читаемые                    -> 0.68 … 1.00
+# Провал между 0.12 и 0.37, порог 0.30 стоит в нём; требование >=15 строк
+# отсекает короткие формы, где доля шумная.
+TEXT_COVERAGE_MIN = 0.25
+DETACHED_MIN_CODES = 15
+DETACHED_MAX_NEAR = 0.30
+DETACHED_WINDOW = 3
+_VAL_TOKEN = re.compile(r'(?<![\d.,])\d{1,3}(?:[ \u00a0\u2009]\d{3})+(?![\d])')
+_CODE_TOKEN = re.compile(r'(?<![\d.,])(1[0-9]{3}|2[0-9]{3})(?![\d])')
+
+
+def text_layer_coverage(doc):
+    """(страниц с текстом, всего страниц) — >=50 знаков считается страницей с текстом."""
+    return sum(1 for pg in doc if len(pg.get_text().strip()) >= 50), len(doc)
+
+
+def values_near_codes(doc):
+    """(строк-с-кодом, из них с числом рядом) по всему документу.
+
+    Число ищется как токен с разделителем разрядов («1 668», «409 858»): код строки
+    и год так не пишутся, поэтому токен однозначен, а «1520» за число не сойдёт.
+    Годы (20xx) из кодов исключены — иначе «2026» в шапке считался бы кодом строки.
+    """
+    codes = near = 0
+    for pg in doc:
+        lines = [ln.strip() for ln in pg.get_text().split('\n')]
+        is_code = [bool(_CODE_TOKEN.search(ln)) and not re.search(r'20[12]\d', ln)
+                   for ln in lines]
+        is_val = [bool(_VAL_TOKEN.search(ln)) for ln in lines]
+        codes += sum(is_code)
+        for i, c in enumerate(is_code):
+            if c and any(is_val[j] for j in range(max(0, i - DETACHED_WINDOW),
+                                                    min(len(lines), i + DETACHED_WINDOW + 1))):
+                near += 1
+    return codes, near
+
+
+def unusable_text_layer(doc):
+    """Текстовый слой есть, но читать по нему документ нельзя. -> (bool, причина).
+
+    Два независимых случая, оба измерены (см. пороги выше):
+      * слой покрывает малую долю страниц (смешанный документ) — страницы-картинки
+        текстовой ветке не видны, и форма теряет целые разделы;
+      * слой покрывает документ, но числа в нём оторваны от строк.
+    `_garbled_page` не ловит ни один из них: он ищет латинскую абракадабру, а здесь
+    буквы кириллические — просто с ошибками OCR («Наименование локазателя»,
+    «111. Капитал», «Нераспредепенная прибыль»).
+    """
+    with_text, total = text_layer_coverage(doc)
+    if total and (with_text / total) < TEXT_COVERAGE_MIN:
+        return True, (f'текстовый слой только на {with_text} из {total} страниц '
+                      f'(доля {with_text / total:.2f} < {TEXT_COVERAGE_MIN}) — '
+                      f'страницы-картинки текстовой ветке не видны')
+    detached, codes, near = _values_detached(doc)
+    if detached:
+        return True, (f'текстовый слой есть, но числа в нём оторваны от строк: '
+                      f'из {codes} строк-с-кодом число рядом лишь у {near} '
+                      f'(доля {near / codes:.2f} < {DETACHED_MAX_NEAR})')
+    return False, ''
+
+
+def _values_detached(doc):
+    """(сработало, codes, near) — числа в текстовом слое оторваны от строк.
+
+    Второе условие `unusable_text_layer`, вынесенное в одну реализацию: `values_detached`
+    ниже нужно тесту отдельно, и он не должен повторять порог и формулу второй раз.
+    """
+    codes, near = values_near_codes(doc)
+    return (codes >= DETACHED_MIN_CODES and (near / codes) < DETACHED_MAX_NEAR), codes, near
+
+
+def values_detached(doc):
+    """Срабатывает ли второе условие `unusable_text_layer` (числа оторваны от строк).
+
+    Оставлено ради `tests/test_detached_values.py`: тест проверяет именно это условие,
+    не подмешивая первое (покрытие слоя). Реализация — `_values_detached`.
+    """
+    return _values_detached(doc)[0]
+
 def process(path):
     name = os.path.basename(path)
     print(f'== {name}')
@@ -2095,6 +2751,14 @@ def process(path):
     garbled = [p for p in range(1, len(doc) + 1) if _garbled_page(doc[p - 1])]
     if len(garbled) >= max(2, len(doc) // 4):
         has_text = False
+    # Второй вид сломанного слоя, который _garbled_page пропускает: буквы целы
+    # (кириллица), а слой либо покрывает малую долю страниц, либо теряет привязку
+    # чисел к строкам. Такой слой тоже нечитаем — см. unusable_text_layer().
+    # Решение то же: идём веткой скана и читаем картинку.
+    unusable, why = unusable_text_layer(doc)
+    flipped = bool(has_text) and unusable
+    if flipped:
+        has_text = False
     result = {'schema_version': '1.1',
               'source': {'file': name, 'pages_total': len(doc), 'text_layer': has_text,
                          'provider': ACTIVE_PROFILE.name},
@@ -2104,6 +2768,8 @@ def process(path):
     if garbled and not has_text:
         result['warnings'].append(
             f'broken OCR text layer on {len(garbled)}/{len(doc)} pages -> scan branch')
+    if flipped:
+        result['warnings'].append(f'текстовый слой нечитаем -> scan branch: {why}')
     want = wanted_forms(name)
     print(f'  forms wanted: {sorted(want) if want else "all"}')
     # title page info (text branch only; scan branch gets it from LLM structuring)
@@ -2164,7 +2830,7 @@ def process(path):
         for key in list(fp):
             chks = run_checks(key, result[key]['items'])
             result[key]['transcript_pages'] = form_pages[key]
-            if not all(c['ok'] for c in chks):
+            if any(is_failure(c) for c in chks):
                 print(f'  {key}: rule-parse checks FAILED -> LLM fallback')
                 txt = '\n\n'.join(f'=== PAGE {p} ===\n{doc[p-1].get_text()}' for p in form_pages[key])
                 tag = f"{os.path.splitext(name)[0]}_tstruct_{key}_p{'_'.join(map(str, form_pages[key]))}"
@@ -2203,8 +2869,29 @@ def process(path):
             # sync this form's checks; balance still failing -> ESC_DPI escalation
             chks2 = [dict(form=key, **c) for c in run_checks(key, result[key]['items'])]
             result['checks'] = [c for c in result['checks'] if c['form'] != key] + chks2
-            if key == 'balance' and not all(c['ok'] for c in chks2):
+            if key == 'balance' and any(is_failure(c) for c in chks2):
                 escalate_failed_form(doc, key, result, result['warnings'], name=name)
+        # Текстовый слой может содержать СТРАНИЦЫ форм, но ни одного значения: у «ЗАО Прогресс»
+        # и «Мой самокат» (9мес 2026) текст — плохой OCR («наи менован ие показателя», цифры
+        # потеряны). Тогда локальный разбор даёт пустую форму, и документ уходил в
+        # needs_review с нулём кодов, хотя формы в нём есть. Перечитываем ИМЕННО эти страницы
+        # сканированием — не весь документ, чтобы не платить за пояснения.
+        _empty_forms = [k for k in ('balance', 'income_statement', 'cash_flow')
+                        if result.get(k) and not any(
+                            v is not None for it in result[k]['items']
+                            for v in (it.get('values') or []))]
+        if _empty_forms:
+            _pages = sorted({p for k in _empty_forms for p in (fp.get(k) or [])
+                             if isinstance(p, int) and 1 <= p <= len(doc)})
+            if _pages:
+                result['warnings'].append(
+                    f'текстовый слой дал страницы {_pages}, но ни одного значения '
+                    f'({_empty_forms}) -> перечитываю сканированием')
+                print(f'  text forms EMPTY ({_empty_forms}) -> scan pages {_pages}')
+                doc_result.clear()
+                warn, transcripts = scan_pipeline(doc, name, only_pages=_pages)
+                result['warnings'] += warn
+                collect_scan_results(doc, name, transcripts, result)
         if not text_branch_found_forms(fp):
             # text layer present but no target forms ARE ACTUALLY IN IT. Two cases:
             #  a) hybrid: forms are SCANS (image-only pages) -> cheap detection over
@@ -2244,12 +2931,31 @@ def process(path):
         result['warnings'] += warn
         collect_scan_results(doc, name, transcripts, result)
     doc.close()
+    # Правило, которое не на чем вычислить, — это НЕ провал, но и не доказательство
+    # верности цифр. Такие правила перечисляются явно, иначе «проверок не было» читается
+    # как «проверки прошли».
+    unverified = [f'{c["form"]}:{c["rule"]}' for c in result['checks']
+                  if c.get('verdict') == 'n/a']
+    if unverified:
+        shown = '; '.join(unverified[:6])
+        more = f' и ещё {len(unverified) - 6}' if len(unverified) > 6 else ''
+        result['warnings'].append(
+            f'не проверено — нет данных для правила (это не провал): {shown}{more}')
     per_form_ok = {}
     for c in result['checks']:
+        # Форма, прочитанная в урезанном составе (ОДДС: только 4100), в вердикт не входит:
+        # её правила 4400/4500 вычислить не на чем, и «n/a» — это отсутствие проверки, а не
+        # провал. Иначе каждый документ получал бы needs_review из-за состава данных.
+        form_obj = result.get(c['form']) or {}
+        if form_obj.get('scope'):
+            continue
         per_form_ok.setdefault(c['form'], []).append(bool(c.get('ok')))
     unread = (result.get('source') or {}).get('unread_pages') or []
     all_ok = bool(per_form_ok) and all(all(v) for v in per_form_ok.values())
     result['status'] = decide_status(per_form_ok, unread, any(result.get(k) for k in FORMS))
+    # Сбой структурирования — это не «в документе нет форм»; правило и его обоснование
+    # вынесены в чистую функцию, чтобы проверялись тестом без документа и вызова модели.
+    result['status'] = downgrade_no_forms(result['status'], result['warnings'])
     if result['status'] == 'no_forms':
         result['warnings'].append('no target forms found in document')
     elif all_ok and unread:
@@ -2267,6 +2973,12 @@ def process(path):
 
 if __name__ == '__main__':
     os.makedirs(OUTDIR, exist_ok=True); os.makedirs(PAGESDIR, exist_ok=True)
+    # Цены, варианты адресов и сами модели меняются постоянно (17.11 базовый sonnet-5 стоил
+    # 24.64/123.2, 24.11 — 87/432). Напоминаем перед прогоном, а не разбираемся после:
+    # занижённая стоимость в отчёте выглядит как факт.
+    _stale = ACTIVE_PROFILE.price_staleness()
+    if _stale:
+        print(f'ВНИМАНИЕ: {_stale}')
     targets = sys.argv[1:] or ['Рекорд трейд_6мес_2026.pdf', 'Корпсан_6мес_2026.pdf']
     results = []
     for t in targets:
