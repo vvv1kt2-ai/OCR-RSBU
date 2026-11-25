@@ -77,11 +77,22 @@ def get_val(form, code, idx):
     return v[idx] if idx < len(v) else None
 
 
+def year_pattern(year):
+    """Регулярка года, устойчивая к пробелу ВНУТРИ числа.
+
+    Транскрипция иногда отдаёт «За 1 полугод 20 26 г.» — пробел внутри года. Поиск
+    непрерывной подстроки '2026' такую колонку не находит, и значение молча пропадает:
+    измерено на `ИПС_6мес_2026` (ОДДС: «20 26 г.» / «20 25 г.») — в своде пустели 4 клетки
+    ОДДС, хотя в артефакте числа есть, и в эталоне они тоже есть.
+    """
+    return re.compile(r'\s*'.join(re.escape(d) for d in str(year)))
+
+
 def col_index_balance(form, year):
     if not form:
         return None
     iso = f'{year}-06-30'
-    pat = re.compile(r'30\s*июн\w*\s*' + str(year), re.I)
+    pat = re.compile(r'30\s*июн\w*\s*' + year_pattern(year).pattern, re.I)
     for i, c in enumerate(form.get('columns') or []):
         cs = str(c)
         if cs == iso or pat.search(cs):
@@ -92,10 +103,39 @@ def col_index_balance(form, year):
 def col_index_flow(form, year):
     if not form:
         return None
+    pat = year_pattern(year)
     for i, c in enumerate(form.get('columns') or []):
-        if str(year) in str(c):
+        if pat.search(str(c)):
             return i
     return None
+
+
+def flow_columns(form, year, form_ru):
+    """(idx_cur, idx_prev, warning) — колонки ОФР/ОДДС и страж «год колонки не доказан».
+
+    Единственная копия правила. Раньше условие и текст предупреждения были продублированы
+    дословно в svod.py и svod_build.py, и правка в одном месте не доезжала до другого —
+    ровно та причина, по которой «свои копии правил» в этом проекте уже давали расхождение.
+
+    Колонка СВОЕГО года обязана найтись. Если её нет, заголовки колонок этой формы не
+    называют год документа, а значит не доказана и колонка прошлого года: поставить туда
+    число — значит выдать числа 2026 года за 2025. Измерено на ОДДС трёх документов
+    (Бианка премиум, Унител, Урожай): форма получала заголовок ЧУЖОЙ формы («На 30 июня
+    2025 г.» / «На 31 декабря 2025 г.»), и свод молча писал 2026 год в колонку 2025, а 2026
+    оставлял пустым — ошибка выглядела как данные. Пустая клетка плюс запись в аудите
+    честнее неверного года.
+
+    warning = None означает «колонки найдены» (или формы нет вовсе — тогда читать нечего).
+    """
+    if not form:
+        return None, None, None
+    idx_cur = col_index_flow(form, year)
+    idx_prev = col_index_flow(form, year - 1)
+    if idx_cur is None:
+        return None, None, (f'ВНИМАНИЕ: колонки {form_ru} не называют {year} год '
+                            f'(columns={form.get("columns")}) — значения {form_ru} не взяты: '
+                            f'год колонки не доказан')
+    return idx_cur, idx_prev, None
 
 
 def check_balance(d):
@@ -193,16 +233,24 @@ def check_cf(d):
         return a is not None and b is not None and abs(a - b) <= TOL
     def eq_pm(a, e):
         return a is not None and e is not None and (abs(a - e) <= TOL or abs(a + e) <= TOL)
+    # Правило применяется только если ВСЕ его участники есть в форме. Раньше условием было
+    # «есть хотя бы один», и отсутствующие слагаемые подставлялись нулём: на форме, где
+    # прочитан только 4100 (состав данных 19.11.2026 — из ОДДС нужен один код), правило
+    # `4100 == 4110-4120` сравнивало сумму с нулём и объявляло провал при верных данных.
+    # Замер: «Кокс_9мес_2026», «Рубеж_9мес_2025», «Энерготехсервис_9мес_2025» — по два
+    # ложных провала на документ.
+    def all_have(*codes):
+        return all(S(code, c) is not None for code in codes)
     rules = [
         ('4100 == 4110-4120',
          lambda c: eq_pm(S('4100', c), (S('4110', c) or 0) - abs(S('4120', c) or 0))
-         if has(S('4110', c), S('4120', c), S('4100', c)) else None),
+         if all_have('4110', '4120', '4100') else None),
         ('4200 == 4210-4220',
          lambda c: eq_pm(S('4200', c), (S('4210', c) or 0) - abs(S('4220', c) or 0))
-         if has(S('4210', c), S('4220', c), S('4200', c)) else None),
+         if all_have('4210', '4220', '4200') else None),
         ('4300 == 4310-4320',
          lambda c: eq_pm(S('4300', c), (S('4310', c) or 0) - abs(S('4320', c) or 0))
-         if has(S('4310', c), S('4320', c), S('4300', c)) else None),
+         if all_have('4310', '4320', '4300') else None),
         ('4400 == 4100+4200+4300',
          lambda c: eq_pm(S('4400', c), sum(S(k, c) or 0 for k in ('4100', '4200', '4300')))
          if has(S('4400', c)) and all(S(k, c) is not None for k in ('4100', '4200', '4300')) else None),
@@ -219,6 +267,72 @@ def check_cf(d):
             if r is False:
                 fails.append(f'{name} [кол.{c}]')
     return fails
+
+
+def same_printed_row(copy_vals, cand_vals):
+    """Копия и строка-кандидат — это ОДНА И ТА ЖЕ напечатанная строка?
+
+    Смотрим по заполненным колонкам КОПИИ: где у неё есть число, у кандидата должно быть то
+    же число. Пустые колонки копии не сравниваются — `_sum_vals` в pipeline.py превращает
+    None в 0, поэтому у копии и у оригинала пустые колонки расходятся.
+
+    Почему не «нет колонки с двумя разными заполненными значениями» (это делает
+    `pipeline._rows_repeat`): такая проверка склеила бы две РАЗНЫЕ напечатанные строки
+    аренды — [None, 21, 379] и [10847, None, None], обе напечатаны у «ЕнисейАгроСоюз_6мес_2025».
+    Вторая под неё не подходит: в кол.0 у копии 10847, а у неё пусто.
+    """
+    n = max(len(copy_vals or []), len(cand_vals or []))
+    filled = 0
+    for c in range(n):
+        x = copy_vals[c] if c < len(copy_vals or []) else None
+        y = cand_vals[c] if c < len(cand_vals or []) else None
+        if x is None or x == 0:
+            continue
+        filled += 1
+        if x != y:
+            return False
+    return filled > 0
+
+
+def has_printed_twin(item, rows):
+    """Есть ли среди rows другая строка с тем же именем и той же напечатанной строкой.
+
+    Одна реализация на два места: `phantom_copies` (аудит дублей) и `rent_extract`
+    (аренда). Раньше это были две вложенные функции с одинаковым телом.
+    """
+    nm = (item.get('name') or '').strip()
+    vals = item.get('values') or []
+    for other in rows:
+        if other is item or (other.get('name') or '').strip() != nm:
+            continue
+        if same_printed_row(vals, other.get('values') or []):
+            return True
+    return False
+
+
+def phantom_copies(balance):
+    """Строки с пометкой `_absorbed_by_sum`, у которых в том же дереве есть двойник.
+
+    Такая копия не несёт новой информации: ровно эта напечатанная строка уже видна в
+    дереве. Но `merge_duplicate_codes` кладёт копию РЕБЁНКОМ поглотившей строки, поэтому
+    всякий, кто суммирует вложенные строки, посчитает её второй раз. Именно так свод
+    удваивал аренду: «ЕнисейАгроСоюз_6мес_2025» (1550 = 21 694 вместо 10 847) и
+    «УПТК65_6мес_2025» (1550 = 41 112 вместо 20 556).
+
+    Возвращает список словарей: имя, код, цепочка кодов и признак `phantom`. Строки без
+    двойника — законные носители значения (19 из 20 в корпусе), их трогать не нужно.
+    """
+    rows = list(walk(balance.get('items')))
+
+    out = []
+    for it in rows:
+        if not it.get('_absorbed_by_sum'):
+            continue
+        out.append({'name': it.get('name') or '',
+                    'code': it.get('code'),
+                    'chain': list(it.get('_chain') or []),
+                    'phantom': has_printed_twin(it, rows)})
+    return out
 
 
 def rent_extract(balance, col_idx):
@@ -246,11 +360,25 @@ def rent_extract(balance, col_idx):
         and (SHORT_RENT_RE.search(it.get('name') or '') or LEASE_RE.search(it.get('name') or ''))
         for it in walk(balance.get('items')))
 
+    # Поглощённая копия (merge_duplicate_codes) существует ТОЛЬКО чтобы напечатанная
+    # строка осталась видимой. Если такая строка в дереве уже есть, копия — фантом, и
+    # считать её значит удвоить значение. Замеры:
+    #   * «ЕнисейАгроСоюз_6мес_2025» — копия [10847, None, None] при такой же строке без кода;
+    #   * «УПТК65_6мес_2025» — копия [20556, 0, 0] при строке [20556, None, None]: пустые
+    #     колонки разошлись, потому что `_sum_vals` превращает None в 0. Свод давал
+    #     1550 = 41 112 вместо 20 556, а 20 556 подтверждает сам отчёт: итог раздела V
+    #     1 351 816 = 306 490 + 1 012 815 + 20 556 + 11 954 (плюс 1 на округление).
+    all_rows = list(walk(balance.get('items')))
+
     for it in walk(balance.get('items')):
         name = it.get('name') or ''
         code = it.get('code')
         chain = it.get('_chain') or []
         if AVANS_RE.search(name) or code in ('1450', '1550'):
+            continue
+        if it.get('_absorbed_by_sum') and has_printed_twin(it, all_rows):
+            notes.append(f'«{name}» col{col_idx}={vals_of(it)} — поглощённая копия, '
+                         f'такая строка уже есть в дереве, не плюсовалась')
             continue
         m_long = bool(LONG_RENT_RE.search(name))
         m_short = bool(SHORT_RENT_RE.search(name))
@@ -352,16 +480,16 @@ def main():
 
         # ОФР/ОДДС — только из файла-2026, обе колонки
         if year == 2026:
-            for code in IS_CODES:
-                for yy, idx in (('2026', col_index_flow(isf, 2026)), ('2025', col_index_flow(isf, 2025))):
-                    v = get_val(isf, code, idx)
-                    if v is not None:
-                        cells[(yy, code)] = abs(v) if code == '2330' else v
-            for code in CF_CODES:
-                for yy, idx in (('2026', col_index_flow(cf, 2026)), ('2025', col_index_flow(cf, 2025))):
-                    v = get_val(cf, code, idx)
-                    if v is not None:
-                        cells[(yy, code)] = v
+            for form_ru, form, codes in (('ОФР', isf, IS_CODES), ('ОДДС', cf, CF_CODES)):
+                idx_cur, idx_prev, warn = flow_columns(form, year, form_ru)
+                if warn:
+                    notes_all.setdefault((emitter, yk), []).append(warn)
+                    continue
+                for code in codes:
+                    for yy, idx in (('2026', idx_cur), ('2025', idx_prev)):
+                        v = get_val(form, code, idx)
+                        if v is not None:
+                            cells[(yy, code)] = abs(v) if code == '2330' else v
 
         # пометки по нашим проверкам (по каждой форме)
         for form_name, form, fails in (
