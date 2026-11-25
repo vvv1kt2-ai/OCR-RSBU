@@ -5,7 +5,9 @@
   ok   model_tag('x/y/z') = 'z' is non-empty and filesystem-safe
   ok   model_tag('google/gemini-2.5-flash-lite') = 'gemini-2.5-flash-lite' is non-empty and filesystem-safe
   ok   a trailing slash cannot produce an empty tag
-  ok   the real escalation model keeps the tag the old formula produced
+  ok   model_tag keeps the old tag for the legacy escalation address
+  ok   the live escalation model gets its own filesystem-safe tag
+  ok   one model at two providers never shares a page-cache key
 
 === 2. two documents never share a page-cache key ===
   ok   same page/dpi/model of two different PDFs -> different paths
@@ -28,7 +30,7 @@
 
 === 5. the guard does not fire on genuine artifacts ===
   ok   genuine artifacts exist to test against
-  ok   no false positives on the 26 genuine artifacts
+  ok   no false positives on the 44 genuine artifacts
 
 === 6. sibling conflict detection finds the known reclassification ===
   ok   conflicts found between the 2026 and the 2025 report
@@ -106,4 +108,4 @@
   ok   Селл-Сервис_6мес_2026: falls back to the scan branch now
 
 ============================================================
-passed: 81   failed: 0
+passed: 83   failed: 0

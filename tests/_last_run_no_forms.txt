@@ -1,0 +1,18 @@
+  OK   no_forms + сбой целой формы -> incomplete
+  OK   no_forms + сбой разбиения на части -> incomplete
+  OK   no_forms + сбой среди прочих пометок -> incomplete
+  OK   no_forms без маркера сбоя остаётся no_forms
+  OK   no_forms с пустыми пометками остаётся no_forms
+  OK   no_forms с None вместо пометок остаётся no_forms
+  OK   ok не меняется даже при маркере сбоя
+  OK   needs_review не меняется даже при маркере сбоя
+  OK   incomplete не меняется даже при маркере сбоя
+  OK   маркер 'whole-form structure failed' есть в тексте pipeline.py
+  OK   маркер 'split structuring failed' есть в тексте pipeline.py
+  OK   маркер 'чтение не удалось' есть в тексте pipeline.py
+  OK   маркер 'READ FAILED' есть в тексте pipeline.py
+  OK   no_forms + сбой ЧТЕНИЯ страницы -> incomplete
+  OK   маркер сбоя чтения входит в список
+  OK   process() вызывает downgrade_no_forms
+
+ИТОГ: успешно 16, провалов 0

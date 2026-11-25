@@ -10,6 +10,8 @@ import os, sys, json, glob, re
 sys.path.insert(0, r'D:\models')
 import pipeline as P          # importing it puts D:\models\pylibs on sys.path
 import pymupdf
+sys.path.insert(0, r'D://models//tests')
+import _pdfpath
 
 DOWNLOADS = r'D:\data-scraping\downloads'
 PAGES = os.path.join(P.OUTDIR, 'pages')
@@ -34,7 +36,8 @@ def check(name, cond, detail=''):
 
 
 def pdf(name):
-    return pymupdf.open(os.path.join(DOWNLOADS, name))
+    from _pdfpath import require
+    return pymupdf.open(require(name))
 
 
 print('=== 1. model_tag never returns an empty tag ===')
@@ -43,8 +46,30 @@ for model in ('google/gemini-3.8-flash', 'anthropic/', '', 'x/y/z', 'google/gemi
     check('model_tag(%r) = %r is non-empty and filesystem-safe' % (model, t),
           bool(t) and t == t.strip() and not any(c in t for c in '\\/:*?"<>|'))
 check('a trailing slash cannot produce an empty tag', P.model_tag('vendor/') == 'vendor')
-check('the real escalation model keeps the tag the old formula produced',
-      P.model_tag(P.M_ESC) == P.M_ESC.split('/')[-1] and bool(P.model_tag(P.M_ESC)))
+# Инвариант исходной формулы: для адреса БЕЗ хвоста варианта тег обязан совпадать со старым
+# `split('/')[-1]` — иначе переименование model_tag обесценило бы весь накопленный кэш.
+check('model_tag keeps the old tag for the legacy escalation address',
+      P.model_tag('anthropic/claude-sonnet-5') == 'claude-sonnet-5'
+      and bool(P.model_tag('anthropic/claude-sonnet-5')))
+# Действующая модель эскалации адресуется базовым именем (`anthropic/claude-sonnet-5`):
+# 19.11.2026 канал `:network` исчез из прайса, и роль переведена на живой адрес.
+# Раньше здесь стояло условие «тег ОБЯЗАН отличаться от claude-sonnet-5» — оно охраняло
+# разделение двух бэкендов одной модели, но опиралось на конкретный суффикс, а не на
+# свойство. Настоящий инвариант другой: файл кэша PlusVibe не должен совпасть с файлом
+# Polza для ТОЙ ЖЕ модели — иначе транскрипт одного поставщика станет ответом другого
+# (ровно так выглядел дефект 4.1). Это и проверяется.
+check('the live escalation model gets its own filesystem-safe tag',
+      bool(P.model_tag(P.M_ESC))
+      and P.model_tag(P.M_ESC) == re.sub(r'[^A-Za-z0-9._-]+', '-', P.M_ESC.split('/')[-1]),
+      '%r' % P.model_tag(P.M_ESC))
+
+_pv = P.page_cache_path(pdf('ТГК-14_6мес_2025.pdf'), 'ТГК-14_6мес_2025.pdf', 3, 200,
+                        P.M_ESC)
+_pz = P.page_cache_path(pdf('ТГК-14_6мес_2025.pdf'), 'ТГК-14_6мес_2025.pdf', 3, 200,
+                        P.M_ESC, profile=P._providers.active('polza'))
+check('one model at two providers never shares a page-cache key',
+      os.path.basename(_pv) != os.path.basename(_pz),
+      f'{os.path.basename(_pv)} == {os.path.basename(_pz)}')
 
 print('\n=== 2. two documents never share a page-cache key ===')
 d1, d2 = pdf('ТГК-14_6мес_2025.pdf'), pdf('ТГК-14_6мес_2026.pdf')
@@ -313,7 +338,7 @@ for _shape in ({'income_statement': []},):
     check('the measured shape of the defect is rejected', not P.text_branch_found_forms(_shape))
 # The real documents: the predicate must send them to the scan fallback.
 for _stem in ('ИПС_6мес_2026', 'Йуми_6мес_2026', 'Селл-Сервис_6мес_2026'):
-    _p = os.path.join(DOWNLOADS, _stem + '.pdf')
+    _p = _pdfpath.pdf_path(_stem + '.pdf')
     if not os.path.exists(_p):
         continue
     _d = pymupdf.open(_p)
